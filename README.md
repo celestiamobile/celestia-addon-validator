@@ -34,10 +34,18 @@ If validation fails, it will appear like this.
 
 Click `Details`, and see where it goes wrong.
 
-![vaidation details](images/validation-details.png)
+![failing vaidation details](images/validation-details.png)
 
 In this example, `title` is missing in submitting a new add-on. If it fails, Click `Close pull request` and start from the beginning.
+
+In a successful validation, a summary will be displayed in details.
+
+![successful vaidation details](images/successful-validation.png)
 
 ## Upload to celestia.mobi
 
 After it passes validation, a collaborator can merge this pull request. After the pull request is merged, more checks will be performed automatically and the add-on will be uploaded to celestia.mobi.
+
+## ZIP format
+
+GitHub does not allow uploading files to repositories directly on web. If you know how to create a pull request without web interface then create a pull request putting the zip file under `pending_zip` directory.
