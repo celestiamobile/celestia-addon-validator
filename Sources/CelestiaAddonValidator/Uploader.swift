@@ -194,7 +194,7 @@ public final class Uploader {
         if let richDescriptionID {
             record["localizedHTMLReferences"] = "{ \"en\": \"\(richDescriptionID.recordName)\" }"
         }
-        try await submitRecord(record, savePolicy: .allKeys, to: database)
+        try await submitRecord(record, savePolicy: .changedKeys, to: database)
     }
 
     private func downloadInternal(_ url: URL) async throws -> URL {
