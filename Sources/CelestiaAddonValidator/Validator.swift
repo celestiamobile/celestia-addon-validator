@@ -66,17 +66,21 @@ public final class Validator {
         }
         var basePath = temporaryDirectoryPath
         var contents = [String]()
-        do {
-            contents = try fm.contentsOfDirectory(atPath: temporaryDirectoryPath)
-        } catch {
-            throw ValidatorError.fileManager
-        }
-        if contents.count == 1 {
-            var isDir: ObjCBool = false
-            // Real content might be one level inside the zip
-            let potentialPath = (basePath as NSString).appendingPathComponent(contents[0])
-            if fm.fileExists(atPath: potentialPath, isDirectory: &isDir), isDir.boolValue, contents[0] != "rich_description" {
-                basePath = potentialPath
+        while true {
+            do {
+                contents = try fm.contentsOfDirectory(atPath: basePath)
+            } catch {
+                throw ValidatorError.fileManager
+            }
+            if contents.count == 1 {
+                var isDir: ObjCBool = false
+                // Real content might be one level inside the zip
+                let potentialPath = (basePath as NSString).appendingPathComponent(contents[0])
+                if fm.fileExists(atPath: potentialPath, isDirectory: &isDir), isDir.boolValue, contents[0] != "rich_description" {
+                    basePath = potentialPath
+                }
+            } else {
+                break
             }
         }
         return try validateDirectory(basePath)
