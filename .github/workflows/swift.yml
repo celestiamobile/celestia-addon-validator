@@ -11,6 +11,8 @@ jobs:
     runs-on: macos-12
     steps:
     - uses: actions/checkout@v3
+      with:
+        token: ${{ secrets.GH_ACCESS_TOKEN }}
 
     - name: Get Credentials
       env:
@@ -54,9 +56,6 @@ jobs:
         GH_ACCESS_TOKEN: ${{ secrets.GH_ACCESS_TOKEN }}
       run: |
         if [[ `git status --porcelain` ]]; then
-          git remote set-url origin https://$GH_ACCESS_TOKEN@github.com/levinli303/celestia-addon-validator.git
-          git config --global user.email "lilinfeng303@outlook.com"
-          git config --global user.name "Levin Li"
           git commit -m "Cleaning up"
           git push -f
         fi
