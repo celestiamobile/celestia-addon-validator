@@ -11,10 +11,18 @@ jobs:
     runs-on: macos-12
     steps:
     - uses: actions/checkout@v3
+      if: github.event_name != 'pull_request'
       with:
         token: ${{ secrets.GH_ACCESS_TOKEN }}
+        fetch-depth: 0
+
+    - uses: actions/checkout@v3
+      if: github.event_name == 'pull_request'
+      with:
+        fetch-depth: 0
 
     - name: Get Credentials
+      if: github.event_name != 'pull_request'
       env:
         CLOUDKIT_KEY_BASE64: ${{ secrets.CLOUDKIT_KEY_BASE64 }}
       run: |
@@ -25,15 +33,14 @@ jobs:
       run: swift build -v
 
     - name: Validate
-      env:
-        CLOUDKIT_KEY_ID: ${{ secrets.CLOUDKIT_KEY_ID }}
+      if: github.event_name == 'pull_request'
       run: |
-        for file in pending/*; do
-          id=${file##pending/}
-          if [ "$id" = "placeholder.txt" ]; then
+        for file in `git diff --name-only --diff-filter=A origin/$GITHUB_BASE_REF`; do
+          if [[ "$file" != pending/* ]]; then
             continue
           fi
-          .build/debug/CelestiaAddonValidatorApp $RUNNER_TEMP/key.pem $CLOUDKIT_KEY_ID $id
+          id=${file##pending/}
+          .build/debug/CelestiaAddonValidatorApp --api-token 377f2dcc6bf5c3a841914799d07a4b3e6f82a6e2a30b41697e246933eef06370 $id
         done
 
     - name: Upload
@@ -41,12 +48,12 @@ jobs:
       env:
         CLOUDKIT_KEY_ID: ${{ secrets.CLOUDKIT_KEY_ID }}
       run: |
-        for file in pending/*; do
-          id=${file##pending/}
-          if [ "$id" = "placeholder.txt" ]; then
+        for file in `git diff --name-only --diff-filter=A HEAD^`; do
+          if [[ "$file" != pending/* ]]; then
             continue
           fi
-          .build/debug/CelestiaAddonValidatorApp --upload $RUNNER_TEMP/key.pem $CLOUDKIT_KEY_ID $id
+          id=${file##pending/}
+          .build/debug/CelestiaAddonValidatorApp --upload --key-file-path $RUNNER_TEMP/key.pem --key-id $CLOUDKIT_KEY_ID $id
           git rm pending/$id
         done
 
