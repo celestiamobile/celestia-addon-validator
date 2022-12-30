@@ -28,11 +28,11 @@ jobs:
       env:
         CLOUDKIT_KEY_ID: ${{ secrets.CLOUDKIT_KEY_ID }}
       run: |
-        for file in pending/*; do
-          id=${file##pending/}
-          if [ "$id" = "placeholder.txt" ]; then
+        for file in `git diff --name-only --diff-filter=A HEAD^`; do
+          if [[ "$file" != pending/* ]]; then
             continue
           fi
+          id=${file##pending/}
           .build/debug/CelestiaAddonValidatorApp $RUNNER_TEMP/key.pem $CLOUDKIT_KEY_ID $id
         done
 
@@ -41,11 +41,11 @@ jobs:
       env:
         CLOUDKIT_KEY_ID: ${{ secrets.CLOUDKIT_KEY_ID }}
       run: |
-        for file in pending/*; do
-          id=${file##pending/}
-          if [ "$id" = "placeholder.txt" ]; then
+        for file in `git diff --name-only --diff-filter=A HEAD^`; do
+          if [[ "$file" != pending/* ]]; then
             continue
           fi
+          id=${file##pending/}
           .build/debug/CelestiaAddonValidatorApp --upload $RUNNER_TEMP/key.pem $CLOUDKIT_KEY_ID $id
           git rm pending/$id
         done
