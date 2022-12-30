@@ -1,0 +1,41 @@
+{
+  "pins" : [
+    {
+      "identity" : "mwrequest",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/levinli303/mwrequest.git",
+      "state" : {
+        "revision" : "f0f08932768e037e786d0a261dc891041bcb9a09",
+        "version" : "0.3.4"
+      }
+    },
+    {
+      "identity" : "opencloudkit",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/levinli303/OpenCloudKit.git",
+      "state" : {
+        "revision" : "e5664079f807fa7024d75e28ea625585e37eba6f",
+        "version" : "0.8.17"
+      }
+    },
+    {
+      "identity" : "swift-argument-parser",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/apple/swift-argument-parser",
+      "state" : {
+        "revision" : "fddd1c00396eed152c45a46bea9f47b98e59301d",
+        "version" : "1.2.0"
+      }
+    },
+    {
+      "identity" : "swift-crypto",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/apple/swift-crypto.git",
+      "state" : {
+        "revision" : "067254c79435de759aeef4a6a03e43d087d61312",
+        "version" : "2.0.5"
+      }
+    }
+  ],
+  "version" : 2
+}
