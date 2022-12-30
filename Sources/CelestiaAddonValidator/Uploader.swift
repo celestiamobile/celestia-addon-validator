@@ -206,6 +206,7 @@ public final class Uploader {
     }
 
     private func download(_ url: URL) async throws -> URL {
+        if url.isFileURL { return url }
         do {
             return try await downloadInternal(url)
         } catch {

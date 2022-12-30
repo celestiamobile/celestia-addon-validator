@@ -12,6 +12,7 @@ let package = Package(
         .package(url: "https://github.com/levinli303/OpenCloudKit.git", from: "0.8.14"),
         .package(url: "https://github.com/levinli303/mwrequest.git", from: "0.3.4"),
         .package(url: "https://github.com/apple/swift-argument-parser", from: "1.2.0"),
+        .package(url: "https://github.com/weichsel/ZIPFoundation.git", from: "0.9.0"),
     ],
     targets: [
         .target(
@@ -19,6 +20,7 @@ let package = Package(
             dependencies: [
                 .product(name: "OpenCloudKit", package: "OpenCloudKit"),
                 .product(name: "MWRequest", package: "MWRequest"),
+                .product(name: "ZIPFoundation", package: "ZIPFoundation"),
             ]
         ),
         .executableTarget(

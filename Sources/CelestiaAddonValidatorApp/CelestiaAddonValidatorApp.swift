@@ -5,6 +5,7 @@ import OpenCloudKit
 
 enum ArgumentError: Error {
     case noAuth
+    case noItem
 }
 
 extension ArgumentError: LocalizedError {
@@ -12,6 +13,8 @@ extension ArgumentError: LocalizedError {
         switch self {
         case .noAuth:
             return "No authentication method is provided"
+        case .noItem:
+            return "No item is provided for validation"
         }
     }
 }
@@ -33,8 +36,11 @@ struct CelestiaAddonValidatorApp: AsyncParsableCommand {
     @Option(help: "The API token for CloudKit.")
     var apiToken: String?
 
-    @Argument(help: "The pending record ID to validate or update from.")
-    var recordID: String
+    @Option(help: "The pending record ID to validate or update from.")
+    var recordID: String?
+
+    @Option(help: "The zip file to validate or update from.")
+    var zipFilePath: String?
 
     mutating func run() async throws {
         let config: CKContainerConfig
@@ -49,7 +55,14 @@ struct CelestiaAddonValidatorApp: AsyncParsableCommand {
 
         Validator.configure(config)
         let validator = Validator()
-        let change = try await validator.validate(recordID: CKRecord.ID(recordName: recordID))
+        let change: ItemOperation
+        if let recordID {
+            change = try await validator.validate(recordID: CKRecord.ID(recordName: recordID))
+        } else if let zipFilePath {
+            change = try validator.validate(zipFilePath: zipFilePath)
+        } else {
+            throw ArgumentError.noItem
+        }
         print("Summary:\n\(change.summary)")
 
         if upload {
