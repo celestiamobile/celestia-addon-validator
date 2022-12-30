@@ -33,18 +33,28 @@ jobs:
       run: swift build -v
 
     - name: Validate
-      if: github.event_name == 'pull_request'
+      if: github.event_name == 'pull_request' && always()
       run: |
         for file in `git diff --name-only --diff-filter=A origin/$GITHUB_BASE_REF`; do
           if [[ "$file" != pending/* ]]; then
             continue
           fi
           id=${file##pending/}
-          .build/debug/CelestiaAddonValidatorApp --api-token 377f2dcc6bf5c3a841914799d07a4b3e6f82a6e2a30b41697e246933eef06370 $id
+          .build/debug/CelestiaAddonValidatorApp --api-token 377f2dcc6bf5c3a841914799d07a4b3e6f82a6e2a30b41697e246933eef06370 --record-id $id
+        done
+
+    - name: Validate (ZIP)
+      if: github.event_name == 'pull_request' && always()
+      run: |
+        for file in `git diff --name-only --diff-filter=A origin/$GITHUB_BASE_REF`; do
+          if [[ "$file" != pending_zip/* ]]; then
+            continue
+          fi
+          .build/debug/CelestiaAddonValidatorApp --api-token 377f2dcc6bf5c3a841914799d07a4b3e6f82a6e2a30b41697e246933eef06370 --zip-file-path $file
         done
 
     - name: Upload
-      if: github.event_name != 'pull_request'
+      if: github.event_name != 'pull_request' && always()
       env:
         CLOUDKIT_KEY_ID: ${{ secrets.CLOUDKIT_KEY_ID }}
       run: |
@@ -53,8 +63,21 @@ jobs:
             continue
           fi
           id=${file##pending/}
-          .build/debug/CelestiaAddonValidatorApp --upload --key-file-path $RUNNER_TEMP/key.pem --key-id $CLOUDKIT_KEY_ID $id
+          .build/debug/CelestiaAddonValidatorApp --upload --key-file-path $RUNNER_TEMP/key.pem --key-id $CLOUDKIT_KEY_ID --record-id $id
           git rm pending/$id
+        done
+
+    - name: Upload (ZIP)
+      if: github.event_name != 'pull_request' && always()
+      env:
+        CLOUDKIT_KEY_ID: ${{ secrets.CLOUDKIT_KEY_ID }}
+      run: |
+        for file in `git diff --name-only --diff-filter=A HEAD^`; do
+          if [[ "$file" != pending_zip/* ]]; then
+            continue
+          fi
+          .build/debug/CelestiaAddonValidatorApp --upload --key-file-path $RUNNER_TEMP/key.pem --key-id $CLOUDKIT_KEY_ID --zip-file-path $file
+          git rm $file
         done
 
     - name: Clean Up
