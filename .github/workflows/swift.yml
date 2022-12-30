@@ -1,0 +1,25 @@
+name: Swift
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+
+jobs:
+  build:
+    runs-on: macos-latest
+    steps:
+    - uses: actions/checkout@v3
+
+    - name: Get Credentials
+      env:
+        CLOUDKIT_KEY_BASE64: ${{ secrets.CLOUDKIT_KEY_BASE64 }}
+      run: |
+        CLOUDKIT_KEY_PATH=$RUNNER_TEMP/key.pem
+        echo -n "$CLOUDKIT_KEY_BASE64" | base64 --decode --output $CLOUDKIT_KEY_PATH
+
+    - name: Run
+      env:
+        CLOUDKIT_KEY_ID: ${{ secrets.CLOUDKIT_KEY_ID }}
+      run: swift run CelestiaAddonValidatorApp $RUNNER_TEMP/key.pem $CLOUDKIT_KEY_ID 673B712A-0895-4027-A14F-887778C4E1D1
