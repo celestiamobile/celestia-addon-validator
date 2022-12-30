@@ -1,0 +1,93 @@
+name: Swift
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+
+jobs:
+  build:
+    runs-on: macos-12
+    steps:
+    - uses: actions/checkout@v3
+      if: github.event_name != 'pull_request'
+      with:
+        token: ${{ secrets.GH_ACCESS_TOKEN }}
+        fetch-depth: 0
+
+    - uses: actions/checkout@v3
+      if: github.event_name == 'pull_request'
+      with:
+        fetch-depth: 0
+
+    - name: Get Credentials
+      if: github.event_name != 'pull_request'
+      env:
+        CLOUDKIT_KEY_BASE64: ${{ secrets.CLOUDKIT_KEY_BASE64 }}
+      run: |
+        CLOUDKIT_KEY_PATH=$RUNNER_TEMP/key.pem
+        echo -n "$CLOUDKIT_KEY_BASE64" | base64 --decode --output $CLOUDKIT_KEY_PATH
+
+    - name: Build
+      run: swift build -v
+
+    - name: Validate
+      if: github.event_name == 'pull_request' && always()
+      run: |
+        for file in `git diff --name-only --diff-filter=A origin/$GITHUB_BASE_REF`; do
+          if [[ "$file" != pending/* ]]; then
+            continue
+          fi
+          id=${file##pending/}
+          .build/debug/CelestiaAddonValidatorApp --api-token 377f2dcc6bf5c3a841914799d07a4b3e6f82a6e2a30b41697e246933eef06370 --record-id $id
+        done
+
+    - name: Validate (ZIP)
+      if: github.event_name == 'pull_request' && always()
+      run: |
+        for file in `git diff --name-only --diff-filter=A origin/$GITHUB_BASE_REF`; do
+          if [[ "$file" != pending_zip/* ]]; then
+            continue
+          fi
+          .build/debug/CelestiaAddonValidatorApp --api-token 377f2dcc6bf5c3a841914799d07a4b3e6f82a6e2a30b41697e246933eef06370 --zip-file-path $file
+        done
+
+    - name: Upload
+      if: github.event_name != 'pull_request' && always()
+      env:
+        CLOUDKIT_KEY_ID: ${{ secrets.CLOUDKIT_KEY_ID }}
+      run: |
+        for file in `git diff --name-only --diff-filter=A HEAD^`; do
+          if [[ "$file" != pending/* ]]; then
+            continue
+          fi
+          id=${file##pending/}
+          .build/debug/CelestiaAddonValidatorApp --upload --key-file-path $RUNNER_TEMP/key.pem --key-id $CLOUDKIT_KEY_ID --record-id $id
+          git rm pending/$id
+        done
+
+    - name: Upload (ZIP)
+      if: github.event_name != 'pull_request' && always()
+      env:
+        CLOUDKIT_KEY_ID: ${{ secrets.CLOUDKIT_KEY_ID }}
+      run: |
+        for file in `git diff --name-only --diff-filter=A HEAD^`; do
+          if [[ "$file" != pending_zip/* ]]; then
+            continue
+          fi
+          .build/debug/CelestiaAddonValidatorApp --upload --key-file-path $RUNNER_TEMP/key.pem --key-id $CLOUDKIT_KEY_ID --zip-file-path $file
+          git rm $file
+        done
+
+    - name: Clean Up
+      if: github.event_name != 'pull_request' && always()
+      env:
+        GH_ACCESS_TOKEN: ${{ secrets.GH_ACCESS_TOKEN }}
+      run: |
+        if [[ `git status --porcelain` ]]; then
+          git commit -m "Cleaning up"
+          git fetch origin
+          git rebase origin/main
+          git push
+        fi
