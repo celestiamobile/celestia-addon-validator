@@ -25,6 +25,8 @@ struct CelestiaAddonValidatorApp: AsyncParsableCommand {
         Validator.configure(config)
         let validator = Validator()
         let change = try await validator.validate(recordID: CKRecord.ID(recordName: recordID))
+        print("Summary:\n\(change.summary)")
+
         if upload {
             let uploader = Uploader()
             try await uploader.upload(change)

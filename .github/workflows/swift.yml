@@ -8,7 +8,7 @@ on:
 
 jobs:
   build:
-    runs-on: macos-latest
+    runs-on: macos-12
     steps:
     - uses: actions/checkout@v3
 
@@ -19,7 +19,44 @@ jobs:
         CLOUDKIT_KEY_PATH=$RUNNER_TEMP/key.pem
         echo -n "$CLOUDKIT_KEY_BASE64" | base64 --decode --output $CLOUDKIT_KEY_PATH
 
-    - name: Run
+    - name: Build
+      run: swift build -v
+
+    - name: Validate
       env:
         CLOUDKIT_KEY_ID: ${{ secrets.CLOUDKIT_KEY_ID }}
-      run: swift run CelestiaAddonValidatorApp $RUNNER_TEMP/key.pem $CLOUDKIT_KEY_ID 673B712A-0895-4027-A14F-887778C4E1D1
+      run: |
+        for file in pending/*; do
+          id=${file##pending/}
+          if [ "$id" = "placeholder.txt" ]; then
+            continue
+          fi
+          .build/debug/CelestiaAddonValidatorApp $RUNNER_TEMP/key.pem $CLOUDKIT_KEY_ID $id
+        done
+
+    - name: Upload
+      if: github.event_name != 'pull_request'
+      env:
+        CLOUDKIT_KEY_ID: ${{ secrets.CLOUDKIT_KEY_ID }}
+      run: |
+        for file in pending/*; do
+          id=${file##pending/}
+          if [ "$id" = "placeholder.txt" ]; then
+            continue
+          fi
+          .build/debug/CelestiaAddonValidatorApp --upload $RUNNER_TEMP/key.pem $CLOUDKIT_KEY_ID $id
+          git rm pending/$id
+        done
+
+    - name: Clean Up
+      if: github.event_name != 'pull_request' && always()
+      env:
+        GH_ACCESS_TOKEN: ${{ secrets.GH_ACCESS_TOKEN }}
+      run: |
+        if [[ `git status --porcelain` ]]; then
+          git remote set-url origin https://$GH_ACCESS_TOKEN@github.com/levinli303/celestia-addon-validator.git
+          git config --global user.email "lilinfeng303@outlook.com"
+          git config --global user.name "Levin Li"
+          git commit -m "Cleaning up"
+          git push -f
+        fi
