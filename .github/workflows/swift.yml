@@ -87,6 +87,7 @@ jobs:
       run: |
         if [[ `git status --porcelain` ]]; then
           git commit -m "Cleaning up"
+          git fetch origin
           git rebase origin/main
-          git push -f
+          git push
         fi
