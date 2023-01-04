@@ -89,7 +89,7 @@ public final class Validator {
     private func validateDirectory(_ path: String) throws -> ItemOperation {
         let category = readString(directoryPath: path, filename: "category.txt")
         let idRequirement = readString(directoryPath: path, filename: "id_requirement.txt") ?? readString(directoryPath: path, filename: "id.txt")
-        if let category, category.isEmpty {
+        if let category, (category.isEmpty || category == "remove") {
             // This is a remove operation, should only check id_requirement
             guard let idRequirement, idRequirement.count == UUID().uuidString.count else {
                 throw ValidatorError.noIDOrIncorrectIDProvidedForRemoval
