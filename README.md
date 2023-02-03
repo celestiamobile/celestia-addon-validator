@@ -2,7 +2,7 @@
 
 ## Fill in the information
 
-Go to [this page](https://celestia.mobi/update-addon) and fill in the information about this add-on you are adding, changing or removing.
+Go to [this page](https://celestia.mobi/submit-addon) and fill in the information about this add-on you are adding, changing or removing.
 
 The page depends on Apple service, so you might need to register an Apple ID.
 
