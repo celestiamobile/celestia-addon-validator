@@ -18,7 +18,7 @@ The second pop-up window is optional. State the changes you made on the addon's 
 
 ![image](https://github.com/celestiamobile/celestia-addon-validator/assets/95486841/36874e29-44f9-41bc-b69f-b8c481e05437)
 
-The page will then automatically create a PR for you once the two pop-up windows are successfully filled up. Proceed to [Check Validation Result](https://github.com/celestiamobile/celestia-addon-validator/edit/main/README.md#check-validation-result) for the next steps
+The page will then automatically create a PR for you once the two pop-up windows are successfully filled up. Proceed to [Check Validation Result](https://github.com/celestiamobile/celestia-addon-validator/README.md#check-validation-result) for the next steps
 
 ![image](https://github.com/celestiamobile/celestia-addon-validator/assets/95486841/d2a16b23-7f8f-488d-accf-6b51479330ef)
 
