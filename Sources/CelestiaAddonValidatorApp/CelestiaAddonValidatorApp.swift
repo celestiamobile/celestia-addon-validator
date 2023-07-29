@@ -46,9 +46,9 @@ struct CelestiaAddonValidatorApp: AsyncParsableCommand {
         let config: CKContainerConfig
         if let keyID, let keyFilePath {
             let serverKeyAuth = try CKServerToServerKeyAuth(keyID: keyID, privateKeyFile: keyFilePath)
-            config = CKContainerConfig(containerIdentifier: Self.containerID, environment: Self.environment, serverToServerKeyAuth: serverKeyAuth, requestTimeout: nil, eventLoopGroup: nil))
+            config = CKContainerConfig(containerIdentifier: Self.containerID, environment: Self.environment, serverToServerKeyAuth: serverKeyAuth, requestTimeout: nil, httpClient: nil))
         } else if let apiToken {
-            config = CKContainerConfig(containerIdentifier: Self.containerID, environment: Self.environment, apiTokenAuth: apiToken, requestTimeout: nil, eventLoopGroup: nil))
+            config = CKContainerConfig(containerIdentifier: Self.containerID, environment: Self.environment, apiTokenAuth: apiToken, requestTimeout: nil, httpClient: nil))
         } else {
             throw ArgumentError.noAuth
         }
