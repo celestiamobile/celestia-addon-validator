@@ -158,11 +158,11 @@ public final class Uploader {
             localAddonURL = nil
         }
 
-        let richDescriptionID: CKRecord.ID?
-        if let richDescription = item.richDescription {
-            richDescriptionID = try await uploadRichDescription(richDescription, to: database)
-        } else {
-            richDescriptionID = nil
+        if item.removeRichDescription {
+            record["localizedHTMLReferences"] = nil
+        } else if let richDescription = item.richDescription {
+            let richDescriptionID = try await uploadRichDescription(richDescription, to: database)
+            record["localizedHTMLReferences"] = "{ \"en\": \"\(richDescriptionID.recordName)\" }"
         }
 
         if let title = item.title {
@@ -192,9 +192,6 @@ public final class Uploader {
         }
         if let localAddonURL {
             record["item"] = CKAsset(fileURL: localAddonURL)
-        }
-        if let richDescriptionID {
-            record["localizedHTMLReferences"] = "{ \"en\": \"\(richDescriptionID.recordName)\" }"
         }
         if let type = item.type {
             record["type"] = type

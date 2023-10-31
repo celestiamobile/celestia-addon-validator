@@ -15,4 +15,5 @@ public struct UpdateItem {
     let richDescription: RichDescription?
     let type: String?
     let mainScriptName: String?
+    let removeRichDescription: Bool
 }

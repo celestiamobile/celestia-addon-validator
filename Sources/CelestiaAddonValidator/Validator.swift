@@ -6,6 +6,8 @@ public enum ValidatorError: Error {
     case noIDOrIncorrectIDProvidedForRemoval
     case incorrectIDRequirementFormat
     case missingFields(fieldName: String)
+    case richDescriptionRemovalConflict
+    case richDescriptionRemovalOnCreate
     case emptyResult
     case fileManager
     case unzipping
@@ -26,6 +28,10 @@ extension ValidatorError: LocalizedError {
             return "File manager error"
         case .unzipping:
             return "Error unzipping item"
+        case .richDescriptionRemovalConflict:
+            return "Rich description should be empty when remove_rich_description is on"
+        case .richDescriptionRemovalOnCreate:
+            return "remove_rich_description should not be on when creating an item"
         }
     }
 }
@@ -131,7 +137,11 @@ public final class Validator {
         let richDescriptionDirectory = (path as NSString).appendingPathComponent("rich_description")
         var isDirectory: ObjCBool = false
         let richDescription: RichDescription?
+        let removeRichDescription = readString(directoryPath: path, filename: "remove_rich_description.txt") == "remove"
         if FileManager.default.fileExists(atPath: richDescriptionDirectory, isDirectory: &isDirectory), isDirectory.boolValue {
+            if removeRichDescription {
+                throw ValidatorError.richDescriptionRemovalConflict
+            }
             let baseContent = readString(directoryPath: richDescriptionDirectory, filename: "base.txt")!
             let notes = readStringList(directoryPath: richDescriptionDirectory, filename: "notes.txt")
             let richCoverImagePath = (richDescriptionDirectory as NSString).appendingPathComponent("cover_image.jpg")
@@ -158,6 +168,9 @@ public final class Validator {
         }
 
         if !modifyingExistingAddon {
+            guard !removeRichDescription else {
+                throw ValidatorError.richDescriptionRemovalOnCreate
+            }
             guard let title else {
                 throw ValidatorError.missingFields(fieldName: "title.txt")
             }
@@ -190,7 +203,7 @@ public final class Validator {
         } else {
             categoryReference = nil
         }
-        return .update(item: UpdateItem(title: title, category: categoryReference, id: CKRecord.ID(recordName: idRequirement), authors: authors, description: description, demoObjectName: demoObjectName, releaseDate: releaseDate, lastUpdateDate: lastUpdateDate, coverImage: coverImageURL, addon: addonURL, richDescription: richDescription, type: type, mainScriptName: mainScriptName))
+        return .update(item: UpdateItem(title: title, category: categoryReference, id: CKRecord.ID(recordName: idRequirement), authors: authors, description: description, demoObjectName: demoObjectName, releaseDate: releaseDate, lastUpdateDate: lastUpdateDate, coverImage: coverImageURL, addon: addonURL, richDescription: richDescription, type: type, mainScriptName: mainScriptName, removeRichDescription: removeRichDescription))
     }
 
     public func validate(record: CKRecord) async throws -> ItemOperation {
@@ -222,8 +235,13 @@ public final class Validator {
             modifyingExistingAddon = false
         }
 
+        let removeRichDescription = record["remove_rich_description"] as? Bool ?? false
         let richDescription: RichDescription?
         if let baseContent = record["rich_description_base"] as? String {
+            if removeRichDescription {
+                throw ValidatorError.richDescriptionRemovalConflict
+            }
+
             // Parse rich description...
             print("Parsing rich description...")
 
@@ -269,6 +287,9 @@ public final class Validator {
         let coverImageURL = (record["cover_image"] as? CKAsset)?.fileURL
 
         if !modifyingExistingAddon {
+            guard !removeRichDescription else {
+                throw ValidatorError.richDescriptionRemovalOnCreate
+            }
             guard let title else {
                 throw ValidatorError.missingFields(fieldName: "title")
             }
@@ -295,7 +316,7 @@ public final class Validator {
         guard let idRequirement else {
             throw ValidatorError.missingFields(fieldName: "id_requirement")
         }
-        return .update(item: UpdateItem(title: title, category: category, id: CKRecord.ID(recordName: idRequirement), authors: authors, description: description, demoObjectName: demoObjectName, releaseDate: releaseDate, lastUpdateDate: lastUpdateDate, coverImage: coverImageURL, addon: addonURL, richDescription: richDescription, type: type, mainScriptName: mainScriptName))
+        return .update(item: UpdateItem(title: title, category: category, id: CKRecord.ID(recordName: idRequirement), authors: authors, description: description, demoObjectName: demoObjectName, releaseDate: releaseDate, lastUpdateDate: lastUpdateDate, coverImage: coverImageURL, addon: addonURL, richDescription: richDescription, type: type, mainScriptName: mainScriptName, removeRichDescription: removeRichDescription))
     }
 }
 
