@@ -1,8 +1,54 @@
 import Foundation
 
+private enum NoteType {
+    case note
+    case important
+    case warning
+
+    init(string: String?) {
+        guard let string else {
+            self = .note
+            return
+        }
+        switch string.lowercased() {
+        case "important":
+            self = .important
+        case "warning":
+            self = .warning
+        case "note":
+            fallthrough
+        default:
+            self = .note
+        }
+    }
+
+    var htmlClass: String {
+        switch self {
+        case .note:
+            "note"
+        case .important:
+            "important"
+        case .warning:
+            "warning"
+        }
+    }
+
+    var htmlLabel: String {
+        switch self {
+        case .note:
+            "Note"
+        case .important:
+            "Important"
+        case .warning:
+            "Warning"
+        }
+    }
+}
+
 struct RichDescription {
     let base: String
     let notes: [String]?
+    let noteType: String?
     let coverImage: Image
     let detailImages: [Image]?
     let youtubeIDs: [String]?
@@ -13,12 +59,13 @@ struct RichDescription {
         var text = "<p>\(base)</p>\n"
         if let notes, !notes.isEmpty {
             let noteContent: String
+            let type = NoteType(string: noteType)
             if notes.count == 1 {
                 noteContent = "<p>\(notes[0])</p>"
             } else {
                 noteContent = "<ul>\(notes.map({ "<li>\($0)</li>" }).joined())</ul>"
             }
-            text.append("<p></p><aside class=\"aside-container note\"><p class=\"label\">Note</p>\(noteContent)</aside><p></p>")
+            text.append("<p></p><aside class=\"aside-container \(type.htmlClass)\"><p class=\"label\">\(type.htmlLabel)</p>\(noteContent)</aside><p></p>")
         }
         if let richCoverText = coverImage.caption {
             text.append("<p><img class=\"full-width-image\" src=\"{0}\"><i class=\"text-secondary-size text-secondary-color\">\(richCoverText)</i></p>\n")

@@ -143,6 +143,7 @@ public final class Validator {
                 throw ValidatorError.richDescriptionRemovalConflict
             }
             let baseContent = readString(directoryPath: richDescriptionDirectory, filename: "base.txt")!
+            let noteType = readString(directoryPath: richDescriptionDirectory, filename: "note_type.txt")
             let notes = readStringList(directoryPath: richDescriptionDirectory, filename: "notes.txt")
             let richCoverImagePath = (richDescriptionDirectory as NSString).appendingPathComponent("cover_image.jpg")
             let richCoverText = readString(directoryPath: richDescriptionDirectory, filename: "cover_image.txt")
@@ -162,7 +163,7 @@ public final class Validator {
             let additionalLeadingHTML = readString(directoryPath: richDescriptionDirectory, filename: "additional_leading.html")
             let additionalTrailingHTML = readString(directoryPath: richDescriptionDirectory, filename: "additional_trailing.html")
 
-            richDescription = RichDescription(base: baseContent, notes: notes, coverImage: Image(imageURL: URL(fileURLWithPath: richCoverImagePath), caption: richCoverText), detailImages: images.isEmpty ? nil : images, youtubeIDs: youtubeIDs, additionalLeadingHTML: additionalLeadingHTML, additionalTrailingHTML: additionalTrailingHTML)
+            richDescription = RichDescription(base: baseContent, notes: notes, noteType: noteType, coverImage: Image(imageURL: URL(fileURLWithPath: richCoverImagePath), caption: richCoverText), detailImages: images.isEmpty ? nil : images, youtubeIDs: youtubeIDs, additionalLeadingHTML: additionalLeadingHTML, additionalTrailingHTML: additionalTrailingHTML)
         } else {
             richDescription = nil
         }
@@ -249,6 +250,7 @@ public final class Validator {
                 throw ValidatorError.missingFields(fieldName: "rich_description_cover_image")
             }
             let notes = record["rich_description_notes"] as? [String]
+            let noteType = record["rich_description_note_type"] as? String
             let coverImageCaption = record["rich_description_cover_image_caption"] as? String
             let youtubeIDs = record["rich_description_youtube_ids"] as? [String]
             let additionalLeadingHTML = record["rich_description_additional_leading"] as? String
@@ -267,7 +269,7 @@ public final class Validator {
                 }
             }
 
-            richDescription = RichDescription(base: baseContent, notes: notes, coverImage: Image(imageURL: coverImageURL, caption: coverImageCaption), detailImages: detailImages.isEmpty ? nil : detailImages, youtubeIDs: youtubeIDs, additionalLeadingHTML: additionalLeadingHTML, additionalTrailingHTML: additionalTrailingHTML)
+            richDescription = RichDescription(base: baseContent, notes: notes, noteType: noteType, coverImage: Image(imageURL: coverImageURL, caption: coverImageCaption), detailImages: detailImages.isEmpty ? nil : detailImages, youtubeIDs: youtubeIDs, additionalLeadingHTML: additionalLeadingHTML, additionalTrailingHTML: additionalTrailingHTML)
         } else {
             richDescription = nil
         }
