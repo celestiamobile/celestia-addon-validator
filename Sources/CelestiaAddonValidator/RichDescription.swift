@@ -12,11 +12,13 @@ struct RichDescription {
     var html: String {
         var text = "<p>\(base)</p>\n"
         if let notes, !notes.isEmpty {
+            let noteContent: String
             if notes.count == 1 {
-                text.append("<p>NOTE: \(notes[0])<p>")
+                noteContent = "<p>\(notes[0])</p>"
             } else {
-                text.append("<p>NOTES:<ul>\(notes.map({ "<li>\($0)</li>" }).joined())</ul></p>\n")
+                noteContent = "<ul>\(notes.map({ "<li>\($0)</li>" }).joined())</ul>"
             }
+            text.append("<p></p><aside class=\"aside-container note\"><p class=\"label\">Note</p>\(noteContent)</aside><p></p>")
         }
         if let richCoverText = coverImage.caption {
             text.append("<p><img class=\"full-width-image\" src=\"{0}\"><i class=\"text-secondary-size text-secondary-color\">\(richCoverText)</i></p>\n")
