@@ -25,22 +25,22 @@ private enum NoteType {
     var htmlClass: String {
         switch self {
         case .note:
-            "note"
+            return "note"
         case .important:
-            "important"
+            return "important"
         case .warning:
-            "warning"
+            return "warning"
         }
     }
 
     var htmlLabel: String {
         switch self {
         case .note:
-            "Note"
+            return "Note"
         case .important:
-            "Important"
+            return "Important"
         case .warning:
-            "Warning"
+            return "Warning"
         }
     }
 }
