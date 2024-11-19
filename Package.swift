@@ -10,7 +10,7 @@ let package = Package(
     ],
     dependencies: [
         .package(url: "https://github.com/levinli303/OpenCloudKit.git", from: "1.0.0"),
-        .package(url: "https://github.com/levinli303/mwrequest.git", from: "0.3.4"),
+        .package(url: "https://github.com/levinli303/mwrequest.git", from: "1.0.4"),
         .package(url: "https://github.com/apple/swift-argument-parser", from: "1.2.0"),
         .package(url: "https://github.com/weichsel/ZIPFoundation.git", from: "0.9.0"),
     ],
