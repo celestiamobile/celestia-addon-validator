@@ -1,4 +1,4 @@
-// swift-tools-version: 5.7
+// swift-tools-version: 6.0
 // The swift-tools-version declares the minimum version of Swift required to build this package.
 
 import PackageDescription
@@ -9,7 +9,7 @@ let package = Package(
         .macOS("12.0"), .iOS("15.0"), .watchOS("8.0"), .tvOS("15.0")
     ],
     dependencies: [
-        .package(url: "https://github.com/levinli303/OpenCloudKit.git", from: "1.0.0"),
+        .package(url: "https://github.com/levinli303/OpenCloudKit.git", from: "1.0.1"),
         .package(url: "https://github.com/levinli303/mwrequest.git", from: "1.0.4"),
         .package(url: "https://github.com/apple/swift-argument-parser", from: "1.2.0"),
         .package(url: "https://github.com/weichsel/ZIPFoundation.git", from: "0.9.0"),
