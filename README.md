@@ -35,7 +35,7 @@ In this example, the change ID is `BAC80FE6-602D-4A39-9F54-A3FB85A2385A`.
 ## Create a pull request for validation
 _NOTE: For Apple ID (GitHub not signed in) only, this step is automatically done for you when a GitHub account is signed in_
 
-Open [this page](https://github.com/levinli303/celestia-addon-validator/tree/main/pending), click `Add file`, then `Create new file`, for the file name, fill in the change ID you get earlier, leave the file content empty.
+Open [this page](https://github.com/celestiamobile/celestia-addon-validator/tree/main/pending), click `Add file`, then `Create new file`, for the file name, fill in the change ID you get earlier, leave the file content empty.
 
 Scroll down, fill in the title and click `Propose new file`.
 
