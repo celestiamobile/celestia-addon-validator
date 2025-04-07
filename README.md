@@ -24,6 +24,12 @@ The page will then automatically create a PR for you once the two pop-up windows
 
 ![image](https://github.com/celestiamobile/celestia-addon-validator/assets/95486841/d2a16b23-7f8f-488d-accf-6b51479330ef)
 
+## Error Creating Pull Request
+
+If the pull request is not created, there might be an issue with with your fork of this repository. The root cause might be that the size of your fork of this repository is getting too large. You can reset your fork of the repository by deleting it. Before deleting it, ensure that you don't have any open pull requests.
+
+Go to your fork of this repository in https://github.com/YOUR_GITHUB_USERNAME/celestia-addon-validator.git \(replace YOUR_GITHUB_USERNAME with your GitHub user name\) and navigate to Settings. Find "Delete this repository" down the page and follow the instructions.
+
 ## Check Validation Result
 
 Validation should only take a few minutes.
