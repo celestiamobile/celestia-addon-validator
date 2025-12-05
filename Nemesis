@@ -1,0 +1,16 @@
+{
+Texture "browndwarf.jpg"
+Radius 50000
+Emissive true
+Color [ 1 0.5 0.5 ]
+EllipticalOrbit {
+Period 200000
+SemiMajorAxis 40000
+Eccentricity 0.437
+Inclination 06.18
+AscendingNode 133.51
+ArgOfPericenter 256.42
+MeanAnomaly 241.70
+}
+RotationPeriod 20
+}
