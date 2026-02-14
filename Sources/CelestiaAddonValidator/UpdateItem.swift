@@ -16,4 +16,5 @@ public struct UpdateItem {
     let type: String?
     let mainScriptName: String?
     let removeRichDescription: Bool
+    let relatedObjectPaths: [String]?
 }

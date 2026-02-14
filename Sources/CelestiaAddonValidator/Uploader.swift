@@ -115,6 +115,7 @@ public final class Uploader {
         record["objectName"] = item.demoObjectName
         record["type"] = item.type
         record["mainScriptName"] = item.mainScriptName
+        record["relatedObjectPaths"] = item.relatedObjectPaths
         record["image"] = CKAsset(fileURL: localCoverImageURL)
         record["thumbnail"] = CKAsset(fileURL: localThumbnailURL)
         record["item"] = CKAsset(fileURL: localAddonURL)
@@ -198,6 +199,9 @@ public final class Uploader {
         }
         if let mainScriptName = item.mainScriptName {
             record["mainScriptName"] = mainScriptName
+        }
+        if let relatedObjectPaths = item.relatedObjectPaths {
+            record["relatedObjectPaths"] = relatedObjectPaths
         }
         try await submitRecord(record, savePolicy: .changedKeys, to: database)
     }
