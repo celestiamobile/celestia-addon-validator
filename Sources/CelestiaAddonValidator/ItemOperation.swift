@@ -34,6 +34,9 @@ public extension ItemOperation {
             if let demoObjectName = item.demoObjectName {
                 texts.append("Demo Object Name: \(demoObjectName)")
             }
+            if let relatedObjectPaths = item.relatedObjectPaths {
+                texts.append("Related Object Paths: \(relatedObjectPaths)")
+            }
             if item.coverImage != nil {
                 texts.append("Has new cover image")
             }
@@ -59,6 +62,9 @@ public extension ItemOperation {
             }
             if let demoObjectName = item.demoObjectName {
                 texts.append("Demo Object Name: \(demoObjectName)")
+            }
+            if let relatedObjectPaths = item.relatedObjectPaths {
+                texts.append("Related Object Paths: \(relatedObjectPaths)")
             }
             if item.richDescription != nil {
                 texts.append("Has new rich description")
