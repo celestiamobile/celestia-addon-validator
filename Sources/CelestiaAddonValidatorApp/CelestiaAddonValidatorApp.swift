@@ -59,7 +59,7 @@ struct CelestiaAddonValidatorApp: AsyncParsableCommand {
         if let recordID {
             change = try await validator.validate(recordID: CKRecord.ID(recordName: recordID))
         } else if let zipFilePath {
-            change = try validator.validate(zipFilePath: zipFilePath)
+            change = try await validator.validate(zipFilePath: zipFilePath)
         } else {
             throw ArgumentError.noItem
         }
