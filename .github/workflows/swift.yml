@@ -10,8 +10,9 @@ jobs:
   build:
     runs-on: macos-15
     permissions:
-      contents: read
+      contents: write
       pull-requests: write
+      repository-projects: write
     steps:
     - uses: actions/checkout@v3
       if: github.event_name != 'pull_request'
