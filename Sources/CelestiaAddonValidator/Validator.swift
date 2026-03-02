@@ -1,7 +1,4 @@
 import Foundation
-#if canImport(FoundationNetworking)
-import FoundationNetworking
-#endif
 import OpenCloudKit
 import ZIPFoundation
 import CelestiaCatalogParser
@@ -263,7 +260,14 @@ public final class Validator {
         let addonURL: URL
         switch location {
         case let .local(url):
-            addonURL = url
+            if url.isFileURL {
+                addonURL = url
+            } else {
+                guard let downloadedURL = try await Downloader.download(url) else {
+                    throw ValidatorError.network
+                }
+                addonURL = downloadedURL
+            }
         case let .remote(id):
             let db = CKContainer.default().publicCloudDatabase
             let recordId = CKRecord.ID(recordName: id)
@@ -285,12 +289,10 @@ public final class Validator {
                 guard let addon = record["item"] as? CKAsset else {
                     throw ValidatorError.incorrectRecordFieldType
                 }
-                do {
-                    let (url, _) = try await URLSession.shared.download(for: URLRequest(url: addon.fileURL))
-                    addonURL = url
-                } catch {
+                guard let url = try await Downloader.download(addon.fileURL) else {
                     throw ValidatorError.network
                 }
+                addonURL = url
             case let .failure(error):
                 throw ValidatorError.cloudKit(error: error)
             }

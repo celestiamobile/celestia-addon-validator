@@ -1,6 +1,5 @@
 import AppKit
 import Foundation
-import MWRequest
 import OpenCloudKit
 
 public enum UploaderError {
@@ -85,7 +84,9 @@ public final class Uploader {
         }
         let record = CKRecord(recordType: "ResourceItem", recordID: CKRecord.ID(recordName: id))
         print("Downloading cover image")
-        let localCoverImageURL = try await download(item.coverImage)
+        guard let localCoverImageURL = try await Downloader.download(item.coverImage) else {
+            throw UploaderError.download
+        }
         guard let coverImage = NSImage(contentsOf: localCoverImageURL) else {
             throw UploaderError.unsupportedImage
         }
@@ -97,7 +98,9 @@ public final class Uploader {
             throw UploaderError.saveResizedImage
         }
         print("Downloading addon")
-        let localAddonURL = try await download(item.addon)
+        guard let localAddonURL = try await Downloader.download(item.addon) else {
+            throw UploaderError.download
+        }
 
         let richDescriptionID: CKRecord.ID?
         if let richDescription = item.richDescription {
@@ -135,7 +138,9 @@ public final class Uploader {
         let urls: (localCoverImageURL: URL, localThumbnailImageURL: URL)?
         if let coverImage = item.coverImage {
             print("Downloading cover image")
-            let localCoverImageURL = try await download(coverImage)
+            guard let localCoverImageURL = try await Downloader.download(coverImage) else {
+                throw UploaderError.download
+            }
             guard let coverImage = NSImage(contentsOf: localCoverImageURL) else {
                 throw UploaderError.unsupportedImage
             }
@@ -154,7 +159,10 @@ public final class Uploader {
         let localAddonURL: URL?
         if let addon = item.addon {
             print("Downloading addon")
-            localAddonURL = try await download(addon)
+            guard let url = try await Downloader.download(addon) else {
+                throw UploaderError.download
+            }
+            localAddonURL = url
         } else {
             localAddonURL = nil
         }
@@ -203,33 +211,20 @@ public final class Uploader {
         try await submitRecord(record, savePolicy: .changedKeys, to: database)
     }
 
-    private func downloadInternal(_ url: URL) async throws -> URL {
-        let data = try await AsyncDataRequestHandler.get(url: url.absoluteString)
-        let outputPath = (NSTemporaryDirectory() as NSString).appendingPathComponent(UUID().uuidString)
-        let outputURL = URL(fileURLWithPath: outputPath)
-        try data.write(to: outputURL)
-        return outputURL
-    }
-
-    private func download(_ url: URL) async throws -> URL {
-        if url.isFileURL { return url }
-        do {
-            return try await downloadInternal(url)
-        } catch {
-            throw UploaderError.download
-        }
-    }
-
     private func uploadRichDescription(_ richDescription: RichDescription, to database: CKDatabase) async throws -> CKRecord.ID {
         print("Downloading rich description assets")
-        let localCoverImageURL = try await download(richDescription.coverImage.imageURL)
+        guard let localCoverImageURL = try await Downloader.download(richDescription.coverImage.imageURL) else {
+            throw UploaderError.download
+        }
         if NSImage(contentsOf: localCoverImageURL) == nil {
             throw UploaderError.unsupportedImage
         }
         var imageAssets = [CKAsset(fileURL: localCoverImageURL)]
         if let otherImages = richDescription.detailImages {
             for otherImage in otherImages {
-                let localOtherImageURL = try await download(otherImage.imageURL)
+                guard let localOtherImageURL = try await Downloader.download(otherImage.imageURL) else {
+                    throw UploaderError.download
+                }
                 if NSImage(contentsOf: localOtherImageURL) == nil {
                     throw UploaderError.unsupportedImage
                 }
