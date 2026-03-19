@@ -1,5 +1,14 @@
 # Upload Celestia Add-ons
 
+## Prepare Add-on
+
+If you are creating a new add-on or updating the content of an existing add-on. Here are a few things you should pay attention to:
+
+- File names. Avoid having special characters in file and directory names.
+- Check texture resolutions. Textures should be in power of 2 (e.g. 1024x1024, 1024x2048).
+- Zip it up. Create a .zip archive of your add-on.
+- Format your catalog files. For example, check if the brackets are balanced.
+
 ## Login with a GitHub Account
 
 Go to the [Update Addon](https://celestia.mobi/submit-addon) page and login with your GitHub account.
@@ -47,6 +56,8 @@ In this example, `title` is missing in submitting a new add-on. If it fails, Cli
 In a successful validation, a summary will be displayed in details.
 
 ![successful vaidation details](images/successful-validation.png)
+
+`Related Object Paths` lists objects in the add-on, check and ensure the list is correct.
 
 ## Upload to celestia.mobi
 
