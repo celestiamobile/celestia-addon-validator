@@ -2,12 +2,7 @@
 
 ## Prepare Add-on
 
-If you are creating a new add-on or updating the content of an existing add-on. Here are a few things you should pay attention to:
-
-- File names. Avoid having special characters in file and directory names.
-- Check texture resolutions. Textures should be in power of 2 (e.g. 1024x1024, 1024x2048).
-- Zip it up. Create a .zip archive of your add-on.
-- Format your catalog files. For example, check if the brackets are balanced.
+Check [Make an Add-on](https://celestia.mobi/make-addon) before submitting your add-on.
 
 ## Login with a GitHub Account
 
