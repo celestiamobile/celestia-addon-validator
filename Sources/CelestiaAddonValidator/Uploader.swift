@@ -114,7 +114,6 @@ public final class Uploader {
         record["authors"] = item.authors
         record["category"] = item.category
         record["publishTime"] = item.releaseDate
-        record["lastUpdateTime"] = item.lastUpdateDate
         record["objectName"] = item.demoObjectName
         record["type"] = item.type
         record["mainScriptName"] = item.mainScriptName
@@ -189,9 +188,6 @@ public final class Uploader {
         if let releaseDate = item.releaseDate {
             record["publishTime"] = releaseDate
         }
-        if let lastUpdateDate = item.lastUpdateDate {
-            record["lastUpdateTime"] = lastUpdateDate
-        }
         if let demoObjectName = item.demoObjectName {
             record["objectName"] = demoObjectName
         }
@@ -200,6 +196,7 @@ public final class Uploader {
             record["thumbnail"] = CKAsset(fileURL: localThumbnailURL)
         }
         if let localAddonURL {
+            record["lastUpdateTime"] = Date()
             record["item"] = CKAsset(fileURL: localAddonURL)
         }
         if let mainScriptName = item.mainScriptName {

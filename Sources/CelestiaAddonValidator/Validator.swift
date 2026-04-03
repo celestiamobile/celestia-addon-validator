@@ -126,7 +126,6 @@ public final class Validator {
         }
         let authors = readStringList(directoryPath: path, filename: "authors.txt")
         let releaseDate = readDate(directoryPath: path, filename: "release_date.txt")
-        let lastUpdateDate = readDate(directoryPath: path, filename: "last_update_date.txt")
         let demoObjectName = readString(directoryPath: path, filename: "demo_object_name.txt")
         let type = readString(directoryPath: path, filename: "type.txt")
         let mainScriptName = readString(directoryPath: path, filename: "main_script_name.txt")
@@ -222,7 +221,7 @@ public final class Validator {
             if let demoObjectName, !relatedObjectPaths.contains(demoObjectName) {
                 throw ValidatorError.badDemoObject(supportedPaths: relatedObjectPaths)
             }
-            return .create(item: CreateItem(title: title, category: CKRecord.Reference(recordID: CKRecord.ID(recordName: category), action: .none), idRequirement: idRequirement, authors: authors, description: description, demoObjectName: demoObjectName, releaseDate: releaseDate, lastUpdateDate: lastUpdateDate, coverImage: coverImageURL, addon: addonURL, richDescription: richDescription, type: type, mainScriptName: mainScriptName, relatedObjectPaths: needsUpdateRelatedObjectPaths ? relatedObjectPaths : nil))
+            return .create(item: CreateItem(title: title, category: CKRecord.Reference(recordID: CKRecord.ID(recordName: category), action: .none), idRequirement: idRequirement, authors: authors, description: description, demoObjectName: demoObjectName, releaseDate: releaseDate, coverImage: coverImageURL, addon: addonURL, richDescription: richDescription, type: type, mainScriptName: mainScriptName, relatedObjectPaths: needsUpdateRelatedObjectPaths ? relatedObjectPaths : nil))
         }
         guard let idRequirement else {
             throw ValidatorError.missingFields(fieldName: "id_requirement.txt")
@@ -248,7 +247,7 @@ public final class Validator {
         if let demoObjectName, !relatedObjectPaths.contains(demoObjectName) {
             throw ValidatorError.badDemoObject(supportedPaths: relatedObjectPaths)
         }
-        return .update(item: UpdateItem(title: title, category: categoryReference, id: CKRecord.ID(recordName: idRequirement), authors: authors, description: description, demoObjectName: demoObjectName, releaseDate: releaseDate, lastUpdateDate: lastUpdateDate, coverImage: coverImageURL, addon: addonURL, richDescription: richDescription, mainScriptName: mainScriptName, removeRichDescription: removeRichDescription, relatedObjectPaths: needsUpdateRelatedObjectPaths ? relatedObjectPaths : nil))
+        return .update(item: UpdateItem(title: title, category: categoryReference, id: CKRecord.ID(recordName: idRequirement), authors: authors, description: description, demoObjectName: demoObjectName, releaseDate: releaseDate, coverImage: coverImageURL, addon: addonURL, richDescription: richDescription, mainScriptName: mainScriptName, removeRichDescription: removeRichDescription, relatedObjectPaths: needsUpdateRelatedObjectPaths ? relatedObjectPaths : nil))
     }
 
     private enum AddonLocation {
@@ -403,7 +402,6 @@ public final class Validator {
         let description = record["description"] as? String
         let category = record["category"] as? CKRecord.Reference
         let releaseDate = record["release_date"] as? Date
-        let lastUpdateDate = record["last_update_date"] as? Date
         let authors = record["authors"] as? [String]
         let addonURL = (record["addon"] as? CKAsset)?.fileURL
         let demoObjectName = record["demo_object_name"] as? String
@@ -443,7 +441,7 @@ public final class Validator {
             if let demoObjectName, !relatedObjectPaths.contains(demoObjectName) {
                 throw ValidatorError.badDemoObject(supportedPaths: relatedObjectPaths)
             }
-            return .create(item: CreateItem(title: title, category: category, idRequirement: idRequirement, authors: authors, description: description, demoObjectName: demoObjectName, releaseDate: releaseDate, lastUpdateDate: lastUpdateDate, coverImage: coverImageURL, addon: addonURL, richDescription: richDescription, type: type, mainScriptName: mainScriptName, relatedObjectPaths: needsUpdateRelatedObjectPaths ? relatedObjectPaths : nil))
+            return .create(item: CreateItem(title: title, category: category, idRequirement: idRequirement, authors: authors, description: description, demoObjectName: demoObjectName, releaseDate: releaseDate, coverImage: coverImageURL, addon: addonURL, richDescription: richDescription, type: type, mainScriptName: mainScriptName, relatedObjectPaths: needsUpdateRelatedObjectPaths ? relatedObjectPaths : nil))
         }
         guard let idRequirement else {
             throw ValidatorError.missingFields(fieldName: "id_requirement")
@@ -465,7 +463,7 @@ public final class Validator {
             throw ValidatorError.badDemoObject(supportedPaths: relatedObjectPaths)
         }
 
-        return .update(item: UpdateItem(title: title, category: category, id: CKRecord.ID(recordName: idRequirement), authors: authors, description: description, demoObjectName: demoObjectName, releaseDate: releaseDate, lastUpdateDate: lastUpdateDate, coverImage: coverImageURL, addon: addonURL, richDescription: richDescription, mainScriptName: mainScriptName, removeRichDescription: removeRichDescription, relatedObjectPaths: needsUpdateRelatedObjectPaths ? relatedObjectPaths : nil))
+        return .update(item: UpdateItem(title: title, category: category, id: CKRecord.ID(recordName: idRequirement), authors: authors, description: description, demoObjectName: demoObjectName, releaseDate: releaseDate, coverImage: coverImageURL, addon: addonURL, richDescription: richDescription, mainScriptName: mainScriptName, removeRichDescription: removeRichDescription, relatedObjectPaths: needsUpdateRelatedObjectPaths ? relatedObjectPaths : nil))
     }
 }
 

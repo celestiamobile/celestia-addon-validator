@@ -28,9 +28,6 @@ public extension ItemOperation {
             if let releaseDate = item.releaseDate {
                 texts.append("Release Date: \(releaseDate)")
             }
-            if let lastUpdateDate = item.lastUpdateDate {
-                texts.append("Last Update Date: \(lastUpdateDate)")
-            }
             if let demoObjectName = item.demoObjectName {
                 texts.append("Demo Object Name: \(demoObjectName)")
             }
@@ -57,9 +54,6 @@ public extension ItemOperation {
             texts.append("Category: \(item.category.recordID.recordName)")
             texts.append("Authors: \(item.authors.joined(separator: ", "))")
             texts.append("Release Date: \(item.releaseDate)")
-            if let lastUpdateDate = item.lastUpdateDate {
-                texts.append("Last Update Date: \(lastUpdateDate)")
-            }
             if let demoObjectName = item.demoObjectName {
                 texts.append("Demo Object Name: \(demoObjectName)")
             }
