@@ -46,7 +46,7 @@ extension ValidatorError: LocalizedError {
         case .network:
             return "Network error"
         case let .badDemoObject(supportedPaths):
-            return "Bad demo object name, should be one of \(supportedPaths)"
+            return "Bad demo object name, should be one of \(supportedPaths) or their ancestors"
         case let .badType(type):
             return "Type should be either script or addon, got \(type)"
         case .changeTypeOfExisting:
@@ -218,7 +218,7 @@ public final class Validator {
                 throw ValidatorError.badType(type: type ?? "none")
             }
             let (relatedObjectPaths, needsUpdateRelatedObjectPaths) = try await validateAddonContents(location: .local(url: addonURL))
-            if let demoObjectName, !relatedObjectPaths.contains(demoObjectName) {
+            if let demoObjectName, !relatedObjectPaths.contains(where: { demoObjectName == $0 || $0.hasPrefix("\(demoObjectName)/") }) {
                 throw ValidatorError.badDemoObject(supportedPaths: relatedObjectPaths)
             }
             return .create(item: CreateItem(title: title, category: CKRecord.Reference(recordID: CKRecord.ID(recordName: category), action: .none), idRequirement: idRequirement, authors: authors, description: description, demoObjectName: demoObjectName, releaseDate: releaseDate, coverImage: coverImageURL, addon: addonURL, richDescription: richDescription, type: type, mainScriptName: mainScriptName, relatedObjectPaths: needsUpdateRelatedObjectPaths ? relatedObjectPaths : nil))
@@ -244,7 +244,7 @@ public final class Validator {
         } else {
             (relatedObjectPaths, needsUpdateRelatedObjectPaths) = try await validateAddonContents(location: .remote(id: idRequirement))
         }
-        if let demoObjectName, !relatedObjectPaths.contains(demoObjectName) {
+        if let demoObjectName, !relatedObjectPaths.contains(where: { demoObjectName == $0 || $0.hasPrefix("\(demoObjectName)/") }) {
             throw ValidatorError.badDemoObject(supportedPaths: relatedObjectPaths)
         }
         return .update(item: UpdateItem(title: title, category: categoryReference, id: CKRecord.ID(recordName: idRequirement), authors: authors, description: description, demoObjectName: demoObjectName, releaseDate: releaseDate, coverImage: coverImageURL, addon: addonURL, richDescription: richDescription, mainScriptName: mainScriptName, removeRichDescription: removeRichDescription, relatedObjectPaths: needsUpdateRelatedObjectPaths ? relatedObjectPaths : nil))
@@ -438,7 +438,7 @@ public final class Validator {
                 throw ValidatorError.badType(type: type ?? "none")
             }
             let (relatedObjectPaths, needsUpdateRelatedObjectPaths) = try await validateAddonContents(location: .local(url: addonURL))
-            if let demoObjectName, !relatedObjectPaths.contains(demoObjectName) {
+            if let demoObjectName, !relatedObjectPaths.contains(where: { demoObjectName == $0 || $0.hasPrefix("\(demoObjectName)/") }) {
                 throw ValidatorError.badDemoObject(supportedPaths: relatedObjectPaths)
             }
             return .create(item: CreateItem(title: title, category: category, idRequirement: idRequirement, authors: authors, description: description, demoObjectName: demoObjectName, releaseDate: releaseDate, coverImage: coverImageURL, addon: addonURL, richDescription: richDescription, type: type, mainScriptName: mainScriptName, relatedObjectPaths: needsUpdateRelatedObjectPaths ? relatedObjectPaths : nil))
@@ -459,7 +459,7 @@ public final class Validator {
             (relatedObjectPaths, needsUpdateRelatedObjectPaths) = try await validateAddonContents(location: .remote(id: idRequirement))
         }
 
-        if let demoObjectName, !relatedObjectPaths.contains(demoObjectName) {
+        if let demoObjectName, !relatedObjectPaths.contains(where: { demoObjectName == $0 || $0.hasPrefix("\(demoObjectName)/") }) {
             throw ValidatorError.badDemoObject(supportedPaths: relatedObjectPaths)
         }
 
