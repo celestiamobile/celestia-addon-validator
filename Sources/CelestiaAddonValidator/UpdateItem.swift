@@ -15,4 +15,6 @@ public struct UpdateItem {
     let mainScriptName: String?
     let removeRichDescription: Bool
     let relatedObjectPaths: [String]?
+    let dependencies: [CKRecord.Reference]?
+    let removeDependencies: Bool
 }

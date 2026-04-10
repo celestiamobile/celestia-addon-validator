@@ -40,8 +40,15 @@ public extension ItemOperation {
             if item.addon != nil {
                 texts.append("Has new add-on contents")
             }
-            if item.richDescription != nil {
+            if item.removeRichDescription {
+                texts.append("Removes rich description")
+            } else if item.richDescription != nil {
                 texts.append("Has new rich description")
+            }
+            if item.removeDependencies {
+                texts.append("Removes dependencies")
+            } else if let dependencies = item.dependencies, !dependencies.isEmpty {
+                texts.append("Dependencies: \(dependencies.map({ $0.recordID.recordName }))")
             }
             return texts.joined(separator: "\n")
         case .create(let item):
@@ -62,6 +69,9 @@ public extension ItemOperation {
             }
             if item.richDescription != nil {
                 texts.append("Has new rich description")
+            }
+            if let dependencies = item.dependencies, !dependencies.isEmpty {
+                texts.append("Dependencies: \(dependencies.map({ $0.recordID.recordName }))")
             }
             return texts.joined(separator: "\n")
         }

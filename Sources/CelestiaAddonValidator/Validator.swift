@@ -18,6 +18,7 @@ public enum ValidatorError: Error {
     case badDemoObject(supportedPaths: [String])
     case badType(type: String)
     case changeTypeOfExisting
+    case badRecordType(type: String)
 }
 
 extension ValidatorError: LocalizedError {
@@ -51,6 +52,8 @@ extension ValidatorError: LocalizedError {
             return "Type should be either script or addon, got \(type)"
         case .changeTypeOfExisting:
             return "Cannot change type of an existing item"
+        case let .badRecordType(type):
+            return "Bad record type, got \(type)"
         }
     }
 }
@@ -189,6 +192,11 @@ public final class Validator {
             richDescription = nil
         }
 
+        let dependencies = readStringList(directoryPath: path, filename: "dependencies.txt")
+        if let dependencies {
+            try await validateDependencies(dependencies)
+        }
+
         if !modifyingExistingAddon {
             guard !removeRichDescription else {
                 throw ValidatorError.richDescriptionRemovalOnCreate
@@ -221,8 +229,27 @@ public final class Validator {
             if let demoObjectName, !relatedObjectPaths.contains(where: { demoObjectName == $0 || $0.hasPrefix("\(demoObjectName)/") }) {
                 throw ValidatorError.badDemoObject(supportedPaths: relatedObjectPaths)
             }
-            return .create(item: CreateItem(title: title, category: CKRecord.Reference(recordID: CKRecord.ID(recordName: category), action: .none), idRequirement: idRequirement, authors: authors, description: description, demoObjectName: demoObjectName, releaseDate: releaseDate, coverImage: coverImageURL, addon: addonURL, richDescription: richDescription, type: type, mainScriptName: mainScriptName, relatedObjectPaths: needsUpdateRelatedObjectPaths ? relatedObjectPaths : nil))
+            return .create(
+                item: CreateItem(
+                    title: title,
+                    category: CKRecord.Reference(recordID: CKRecord.ID(recordName: category), action: .none),
+                    idRequirement: idRequirement,
+                    authors: authors,
+                    description: description,
+                    demoObjectName: demoObjectName,
+                    releaseDate: releaseDate,
+                    coverImage: coverImageURL,
+                    addon: addonURL,
+                    richDescription: richDescription,
+                    type: type,
+                    mainScriptName: mainScriptName,
+                    relatedObjectPaths: needsUpdateRelatedObjectPaths ? relatedObjectPaths : nil,
+                    dependencies: dependencies?.map { CKRecord.Reference(recordID: CKRecord.ID(recordName: $0), action: .none) },
+                )
+            )
         }
+
+        let removeDependencies = readString(directoryPath: path, filename: "remove_dependencies.txt") == "remove"
         guard let idRequirement else {
             throw ValidatorError.missingFields(fieldName: "id_requirement.txt")
         }
@@ -247,12 +274,51 @@ public final class Validator {
         if let demoObjectName, !relatedObjectPaths.contains(where: { demoObjectName == $0 || $0.hasPrefix("\(demoObjectName)/") }) {
             throw ValidatorError.badDemoObject(supportedPaths: relatedObjectPaths)
         }
-        return .update(item: UpdateItem(title: title, category: categoryReference, id: CKRecord.ID(recordName: idRequirement), authors: authors, description: description, demoObjectName: demoObjectName, releaseDate: releaseDate, coverImage: coverImageURL, addon: addonURL, richDescription: richDescription, mainScriptName: mainScriptName, removeRichDescription: removeRichDescription, relatedObjectPaths: needsUpdateRelatedObjectPaths ? relatedObjectPaths : nil))
+        return .update(
+            item: UpdateItem(
+                title: title,
+                category: categoryReference,
+                id: CKRecord.ID(recordName: idRequirement),
+                authors: authors,
+                description: description,
+                demoObjectName: demoObjectName,
+                releaseDate: releaseDate,
+                coverImage: coverImageURL,
+                addon: addonURL,
+                richDescription: richDescription,
+                mainScriptName: mainScriptName,
+                removeRichDescription: removeRichDescription,
+                relatedObjectPaths: needsUpdateRelatedObjectPaths ? relatedObjectPaths : nil,
+                dependencies: dependencies?.map { CKRecord.Reference(recordID: CKRecord.ID(recordName: $0), action: .none) },
+                removeDependencies: removeDependencies
+            )
+        )
     }
 
     private enum AddonLocation {
         case local(url: URL)
         case remote(id: String)
+    }
+
+    private func validateDependencies(_ dependencies: [String]) async throws {
+        let db = CKContainer.default().publicCloudDatabase
+        let recordIds = dependencies.map({ CKRecord.ID(recordName: $0) })
+        var recordResults: [CKRecord.ID : Result<CKRecord, Error>]
+        do {
+            recordResults = try await db.records(for: recordIds, desiredKeys: [])
+        } catch {
+            throw ValidatorError.cloudKit(error: error)
+        }
+        for (_, result) in recordResults {
+            switch result {
+            case let .success(record):
+                guard record.recordType == "ResourceItem" else {
+                    throw ValidatorError.badRecordType(type: record.recordType)
+                }
+            case let .failure(error):
+                throw ValidatorError.cloudKit(error: error)
+            }
+        }
     }
 
     private func validateAddonContents(location: AddonLocation) async throws -> ([String], Bool) {
@@ -409,6 +475,11 @@ public final class Validator {
         let mainScriptName = record["main_script_name"] as? String
         let coverImageURL = (record["cover_image"] as? CKAsset)?.fileURL
 
+        let dependencies = record["dependencies"] as? [String]
+        if let dependencies {
+            try await validateDependencies(dependencies)
+        }
+
         if !modifyingExistingAddon {
             guard !removeRichDescription else {
                 throw ValidatorError.richDescriptionRemovalOnCreate
@@ -441,7 +512,24 @@ public final class Validator {
             if let demoObjectName, !relatedObjectPaths.contains(where: { demoObjectName == $0 || $0.hasPrefix("\(demoObjectName)/") }) {
                 throw ValidatorError.badDemoObject(supportedPaths: relatedObjectPaths)
             }
-            return .create(item: CreateItem(title: title, category: category, idRequirement: idRequirement, authors: authors, description: description, demoObjectName: demoObjectName, releaseDate: releaseDate, coverImage: coverImageURL, addon: addonURL, richDescription: richDescription, type: type, mainScriptName: mainScriptName, relatedObjectPaths: needsUpdateRelatedObjectPaths ? relatedObjectPaths : nil))
+            return .create(
+                item: CreateItem(
+                    title: title,
+                    category: category,
+                    idRequirement: idRequirement,
+                    authors: authors,
+                    description: description,
+                    demoObjectName: demoObjectName,
+                    releaseDate: releaseDate,
+                    coverImage: coverImageURL,
+                    addon: addonURL,
+                    richDescription: richDescription,
+                    type: type,
+                    mainScriptName: mainScriptName,
+                    relatedObjectPaths: needsUpdateRelatedObjectPaths ? relatedObjectPaths : nil,
+                    dependencies:  dependencies?.map { CKRecord.Reference(recordID: CKRecord.ID(recordName: $0), action: .none) }
+                )
+            )
         }
         guard let idRequirement else {
             throw ValidatorError.missingFields(fieldName: "id_requirement")
@@ -463,7 +551,26 @@ public final class Validator {
             throw ValidatorError.badDemoObject(supportedPaths: relatedObjectPaths)
         }
 
-        return .update(item: UpdateItem(title: title, category: category, id: CKRecord.ID(recordName: idRequirement), authors: authors, description: description, demoObjectName: demoObjectName, releaseDate: releaseDate, coverImage: coverImageURL, addon: addonURL, richDescription: richDescription, mainScriptName: mainScriptName, removeRichDescription: removeRichDescription, relatedObjectPaths: needsUpdateRelatedObjectPaths ? relatedObjectPaths : nil))
+        let removeDependencies = record["remove_dependencies"] as? Bool ?? false
+        return .update(
+            item: UpdateItem(
+                title: title,
+                category: category,
+                id: CKRecord.ID(recordName: idRequirement),
+                authors: authors,
+                description: description,
+                demoObjectName: demoObjectName,
+                releaseDate: releaseDate,
+                coverImage: coverImageURL,
+                addon: addonURL,
+                richDescription: richDescription,
+                mainScriptName: mainScriptName,
+                removeRichDescription: removeRichDescription,
+                relatedObjectPaths: needsUpdateRelatedObjectPaths ? relatedObjectPaths : nil,
+                dependencies: dependencies?.map { CKRecord.Reference(recordID: CKRecord.ID(recordName: $0), action: .none) },
+                removeDependencies: removeDependencies
+            )
+        )
     }
 }
 

@@ -121,6 +121,7 @@ public final class Uploader {
         record["image"] = CKAsset(fileURL: localCoverImageURL)
         record["thumbnail"] = CKAsset(fileURL: localThumbnailURL)
         record["item"] = CKAsset(fileURL: localAddonURL)
+        record["dependencies"] = item.dependencies?.isEmpty == false ? item.dependencies : nil
         if let richDescriptionID {
             record["localizedHTMLReferences"] = "{ \"en\": \"\(richDescriptionID.recordName)\" }"
         } else {
@@ -205,6 +206,13 @@ public final class Uploader {
         if let relatedObjectPaths = item.relatedObjectPaths {
             record["relatedObjectPaths"] = relatedObjectPaths
         }
+
+        if item.removeDependencies {
+            record["dependencies"] = nil
+        } else if let dependencies = item.dependencies, !dependencies.isEmpty {
+            record["dependencies"] = dependencies
+        }
+
         try await submitRecord(record, savePolicy: .changedKeys, to: database)
     }
 
