@@ -113,7 +113,7 @@ public final class Uploader {
         record["description"] = item.description
         record["authors"] = item.authors
         record["category"] = item.category
-        record["publishTime"] = item.releaseDate
+        record["publishTime"] = Date()
         record["objectName"] = item.demoObjectName
         record["type"] = item.type
         record["mainScriptName"] = item.mainScriptName

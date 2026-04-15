@@ -213,9 +213,6 @@ public final class Validator {
             guard let authors else {
                 throw ValidatorError.missingFields(fieldName: "authors.txt")
             }
-            guard let releaseDate else {
-                throw ValidatorError.missingFields(fieldName: "release_date.txt")
-            }
             guard let coverImageURL else {
                 throw ValidatorError.missingFields(fieldName: "cover_image.jpg")
             }
@@ -237,7 +234,6 @@ public final class Validator {
                     authors: authors,
                     description: description,
                     demoObjectName: demoObjectName,
-                    releaseDate: releaseDate,
                     coverImage: coverImageURL,
                     addon: addonURL,
                     richDescription: richDescription,
@@ -496,9 +492,6 @@ public final class Validator {
             guard let authors else {
                 throw ValidatorError.missingFields(fieldName: "authors")
             }
-            guard let releaseDate else {
-                throw ValidatorError.missingFields(fieldName: "release_date")
-            }
             guard let coverImageURL else {
                 throw ValidatorError.missingFields(fieldName: "cover_image")
             }
@@ -520,7 +513,6 @@ public final class Validator {
                     authors: authors,
                     description: description,
                     demoObjectName: demoObjectName,
-                    releaseDate: releaseDate,
                     coverImage: coverImageURL,
                     addon: addonURL,
                     richDescription: richDescription,

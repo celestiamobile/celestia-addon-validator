@@ -60,7 +60,6 @@ public extension ItemOperation {
             texts.append("Descrpition: \(item.description)")
             texts.append("Category: \(item.category.recordID.recordName)")
             texts.append("Authors: \(item.authors.joined(separator: ", "))")
-            texts.append("Release Date: \(item.releaseDate)")
             if let demoObjectName = item.demoObjectName {
                 texts.append("Demo Object Name: \(demoObjectName)")
             }
