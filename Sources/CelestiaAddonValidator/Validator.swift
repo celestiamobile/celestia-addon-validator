@@ -1,4 +1,5 @@
 import Foundation
+import ImageIO
 import OpenCloudKit
 import ZIPFoundation
 import CelestiaCatalogParser
@@ -19,6 +20,9 @@ public enum ValidatorError: Error {
     case badType(type: String)
     case changeTypeOfExisting
     case badRecordType(type: String)
+    case nonPowerOfTwoTexture(path: String, width: Int, height: Int)
+    case nonASCIIFileName(path: String)
+    case invalidTexture(path: String)
 }
 
 extension ValidatorError: LocalizedError {
@@ -54,6 +58,12 @@ extension ValidatorError: LocalizedError {
             return "Cannot change type of an existing item"
         case let .badRecordType(type):
             return "Bad record type, got \(type)"
+        case let .nonPowerOfTwoTexture(path, width, height):
+            return "Texture \(path) has non-power-of-two dimensions: \(width)x\(height)"
+        case let .nonASCIIFileName(path):
+            return "File has non-ASCII characters in name: \(path)"
+        case let .invalidTexture(path):
+            return "Invalid texture file: \(path)"
         }
     }
 }
@@ -368,6 +378,7 @@ public final class Validator {
         }
 
         let targetExtensions: Set<String> = ["dsc", "stc", "ssc"]
+        let textureImageExtensions: Set<String> = ["jpg", "jpeg", "png"]
         guard let enumerator = fm.enumerator(atPath: temporaryDirectoryPath) else {
             throw ValidatorError.fileManager
         }
@@ -376,6 +387,36 @@ public final class Validator {
             let ext = (relativePath as NSString).pathExtension.lowercased()
             if targetExtensions.contains(ext) {
                 catalogFiles.append((temporaryDirectoryPath as NSString).appendingPathComponent(relativePath))
+            }
+
+            let pathComponents = relativePath.components(separatedBy: "/")
+            let directoryComponents = pathComponents.dropLast()
+            let fileName = pathComponents.last ?? ""
+            let isUnderTextures = directoryComponents.contains("textures")
+            let isUnderModels = directoryComponents.contains("models")
+            let isUnderData = directoryComponents.contains("data")
+            let isCatalogFile = targetExtensions.contains(ext)
+
+            // Validate ASCII filenames for catalog files and files under models/textures/data
+            if (isCatalogFile || isUnderTextures || isUnderModels || isUnderData) && !fileName.isEmpty {
+                if !fileName.allSatisfy({ $0.isASCII }) {
+                    throw ValidatorError.nonASCIIFileName(path: relativePath)
+                }
+            }
+
+            // Validate texture image dimensions are power of two
+            if isUnderTextures && textureImageExtensions.contains(ext) {
+                let fullPath = (temporaryDirectoryPath as NSString).appendingPathComponent(relativePath)
+                let url = URL(fileURLWithPath: fullPath)
+                guard let imageSource = CGImageSourceCreateWithURL(url as CFURL, nil),
+                      let properties = CGImageSourceCopyPropertiesAtIndex(imageSource, 0, nil) as NSDictionary?,
+                      let width = properties[kCGImagePropertyPixelWidth] as? Int,
+                      let height = properties[kCGImagePropertyPixelHeight] as? Int else {
+                    throw ValidatorError.invalidTexture(path: relativePath)
+                }
+                if !width.isPowerOfTwo || !height.isPowerOfTwo {
+                    throw ValidatorError.nonPowerOfTwoTexture(path: relativePath, width: width, height: height)
+                }
             }
         }
 
@@ -596,5 +637,11 @@ extension Validator {
         let contents = try! Data(contentsOf: URL(fileURLWithPath: file))
         let string = String(data: contents, encoding: .utf8)!.trimmingCharacters(in: .whitespacesAndNewlines)
         return dateFormatter.date(from: string)!
+    }
+}
+
+private extension Int {
+    var isPowerOfTwo: Bool {
+        self > 0 && (self & (self - 1)) == 0
     }
 }
