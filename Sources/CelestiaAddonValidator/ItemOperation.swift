@@ -25,9 +25,6 @@ public extension ItemOperation {
             if let authors = item.authors {
                 texts.append("Authors: \(authors.joined(separator: ", "))")
             }
-            if let releaseDate = item.releaseDate {
-                texts.append("Release Date: \(releaseDate)")
-            }
             if let demoObjectName = item.demoObjectName {
                 texts.append("Demo Object Name: \(demoObjectName)")
             }

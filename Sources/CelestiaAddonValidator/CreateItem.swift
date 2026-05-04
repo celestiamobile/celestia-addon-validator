@@ -15,4 +15,5 @@ public struct CreateItem {
     let mainScriptName: String?
     let relatedObjectPaths: [String]?
     let dependencies: [CKRecord.Reference]?
+    let rank: Int?
 }

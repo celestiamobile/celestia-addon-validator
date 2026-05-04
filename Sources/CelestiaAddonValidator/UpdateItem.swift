@@ -8,7 +8,6 @@ public struct UpdateItem {
     let authors: [String]?
     let description: String?
     let demoObjectName: String?
-    let releaseDate: Date?
     let coverImage: URL?
     let addon: URL?
     let richDescription: RichDescription?
@@ -17,4 +16,5 @@ public struct UpdateItem {
     let relatedObjectPaths: [String]?
     let dependencies: [CKRecord.Reference]?
     let removeDependencies: Bool
+    let rank: Int?
 }

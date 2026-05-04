@@ -23,6 +23,9 @@ public enum ValidatorError: Error {
     case nonPowerOfTwoTexture(path: String, width: Int, height: Int)
     case nonASCIIFileName(path: String)
     case invalidTexture(path: String)
+    case invalidText(fieldName: String)
+    case invalidDate(text: String, fieldName: String)
+    case invalidInt(text: String, fieldName: String)
 }
 
 extension ValidatorError: LocalizedError {
@@ -32,7 +35,7 @@ extension ValidatorError: LocalizedError {
             return "No ID or incorrect ID provided for add-on removal"
         case .incorrectIDRequirementFormat:
             return "Incorrect ID requirement format"
-        case .missingFields(let fieldName):
+        case let .missingFields(fieldName):
             return "Missing fields, field name: \(fieldName)"
         case .emptyResult:
             return "Empty result returned"
@@ -64,6 +67,12 @@ extension ValidatorError: LocalizedError {
             return "File has non-ASCII characters in name: \(path)"
         case let .invalidTexture(path):
             return "Invalid texture file: \(path)"
+        case let .invalidText(fieldName):
+            return "Invalid text in \(fieldName)"
+        case let .invalidDate(text, fieldName):
+            return "Invalid date in \(fieldName): \(text)"
+        case let .invalidInt(text, fieldName):
+            return "Invalid integer value in \(fieldName): \(text)"
         }
     }
 }
@@ -127,8 +136,8 @@ public final class Validator {
     }
 
     private func validateDirectory(_ path: String) async throws -> ItemOperation {
-        let category = readString(directoryPath: path, filename: "category.txt")
-        let idRequirement = readString(directoryPath: path, filename: "id_requirement.txt") ?? readString(directoryPath: path, filename: "id.txt")
+        let category = try readString(directoryPath: path, filename: "category.txt")
+        let idRequirement = try readString(directoryPath: path, filename: "id_requirement.txt") ?? readString(directoryPath: path, filename: "id.txt")
         if let category, (category.isEmpty || category == "remove") {
             // This is a remove operation, should only check id_requirement
             guard let idRequirement, idRequirement.count == UUID().uuidString.count else {
@@ -137,13 +146,14 @@ public final class Validator {
             // TODO: we could check the ID is valid or not by fetch the add-on
             return .remove(item: RemoveItem(id: CKRecord.ID(recordName: idRequirement)))
         }
-        let authors = readStringList(directoryPath: path, filename: "authors.txt")
-        let releaseDate = readDate(directoryPath: path, filename: "release_date.txt")
-        let demoObjectName = readString(directoryPath: path, filename: "demo_object_name.txt")
-        let type = readString(directoryPath: path, filename: "type.txt")
-        let mainScriptName = readString(directoryPath: path, filename: "main_script_name.txt")
-        let title = readString(directoryPath: path, filename: "title.txt")
-        let description = readString(directoryPath: path, filename: "description.txt")
+        let authors = try readStringList(directoryPath: path, filename: "authors.txt")
+        let releaseDate = try readDate(directoryPath: path, filename: "release_date.txt")
+        let demoObjectName = try readString(directoryPath: path, filename: "demo_object_name.txt")
+        let type = try readString(directoryPath: path, filename: "type.txt")
+        let mainScriptName = try readString(directoryPath: path, filename: "main_script_name.txt")
+        let title = try readString(directoryPath: path, filename: "title.txt")
+        let description = try readString(directoryPath: path, filename: "description.txt")
+        let rank = try readInt(directoryPath: path, filename: "rank.txt")
         let potentialAddonPath = (path as NSString).appendingPathComponent("addon.zip")
         let fm = FileManager.default
         let addonURL = fm.fileExists(atPath: potentialAddonPath) ? URL(fileURLWithPath: potentialAddonPath) : nil
@@ -171,38 +181,38 @@ public final class Validator {
         let richDescriptionDirectory = (path as NSString).appendingPathComponent("rich_description")
         var isDirectory: ObjCBool = false
         let richDescription: RichDescription?
-        let removeRichDescription = readString(directoryPath: path, filename: "remove_rich_description.txt") == "remove"
+        let removeRichDescription = try readString(directoryPath: path, filename: "remove_rich_description.txt") == "remove"
         if fm.fileExists(atPath: richDescriptionDirectory, isDirectory: &isDirectory), isDirectory.boolValue {
             if removeRichDescription {
                 throw ValidatorError.richDescriptionRemovalConflict
             }
-            let baseContent = readString(directoryPath: richDescriptionDirectory, filename: "base.txt")!
-            let noteType = readString(directoryPath: richDescriptionDirectory, filename: "note_type.txt")
-            let notes = readStringList(directoryPath: richDescriptionDirectory, filename: "notes.txt")
+            let baseContent = try readString(directoryPath: richDescriptionDirectory, filename: "base.txt")!
+            let noteType = try readString(directoryPath: richDescriptionDirectory, filename: "note_type.txt")
+            let notes = try readStringList(directoryPath: richDescriptionDirectory, filename: "notes.txt")
             let richCoverImagePath = (richDescriptionDirectory as NSString).appendingPathComponent("cover_image.jpg")
-            let richCoverText = readString(directoryPath: richDescriptionDirectory, filename: "cover_image.txt")
+            let richCoverText = try readString(directoryPath: richDescriptionDirectory, filename: "cover_image.txt")
             guard fm.fileExists(atPath: richCoverImagePath) else {
                 throw ValidatorError.missingFields(fieldName: "rich_description/cover_image.jpg")
             }
-            let youtubeIDs = readStringList(directoryPath: richDescriptionDirectory, filename: "youtube_ids.txt")
+            let youtubeIDs = try readStringList(directoryPath: richDescriptionDirectory, filename: "youtube_ids.txt")
             var images = [Image]()
             while true {
                 let imagePath = (richDescriptionDirectory as NSString).appendingPathComponent("detail_image_\(images.count).jpg")
                 if !fm.fileExists(atPath: imagePath) {
                     break
                 }
-                let caption = readString(directoryPath: richDescriptionDirectory, filename: "detail_image_\(images.count).txt")
+                let caption = try readString(directoryPath: richDescriptionDirectory, filename: "detail_image_\(images.count).txt")
                 images.append(Image(imageURL: URL(fileURLWithPath: imagePath), caption: caption))
             }
-            let additionalLeadingHTML = readString(directoryPath: richDescriptionDirectory, filename: "additional_leading.html")
-            let additionalTrailingHTML = readString(directoryPath: richDescriptionDirectory, filename: "additional_trailing.html")
+            let additionalLeadingHTML = try readString(directoryPath: richDescriptionDirectory, filename: "additional_leading.html")
+            let additionalTrailingHTML = try readString(directoryPath: richDescriptionDirectory, filename: "additional_trailing.html")
 
             richDescription = RichDescription(base: baseContent, notes: notes, noteType: noteType, coverImage: Image(imageURL: URL(fileURLWithPath: richCoverImagePath), caption: richCoverText), detailImages: images.isEmpty ? nil : images, youtubeIDs: youtubeIDs, additionalLeadingHTML: additionalLeadingHTML, additionalTrailingHTML: additionalTrailingHTML)
         } else {
             richDescription = nil
         }
 
-        let dependencies = readStringList(directoryPath: path, filename: "dependencies.txt")
+        let dependencies = try readStringList(directoryPath: path, filename: "dependencies.txt")
         if let dependencies {
             try await validateDependencies(dependencies)
         }
@@ -251,11 +261,12 @@ public final class Validator {
                     mainScriptName: mainScriptName,
                     relatedObjectPaths: needsUpdateRelatedObjectPaths ? relatedObjectPaths : nil,
                     dependencies: dependencies?.map { CKRecord.Reference(recordID: CKRecord.ID(recordName: $0), action: .none) },
+                    rank: rank
                 )
             )
         }
 
-        let removeDependencies = readString(directoryPath: path, filename: "remove_dependencies.txt") == "remove"
+        let removeDependencies = try readString(directoryPath: path, filename: "remove_dependencies.txt") == "remove"
         guard let idRequirement else {
             throw ValidatorError.missingFields(fieldName: "id_requirement.txt")
         }
@@ -288,7 +299,6 @@ public final class Validator {
                 authors: authors,
                 description: description,
                 demoObjectName: demoObjectName,
-                releaseDate: releaseDate,
                 coverImage: coverImageURL,
                 addon: addonURL,
                 richDescription: richDescription,
@@ -296,7 +306,8 @@ public final class Validator {
                 removeRichDescription: removeRichDescription,
                 relatedObjectPaths: needsUpdateRelatedObjectPaths ? relatedObjectPaths : nil,
                 dependencies: dependencies?.map { CKRecord.Reference(recordID: CKRecord.ID(recordName: $0), action: .none) },
-                removeDependencies: removeDependencies
+                removeDependencies: removeDependencies,
+                rank: rank
             )
         )
     }
@@ -504,13 +515,13 @@ public final class Validator {
         let title = record["title"] as? String
         let description = record["description"] as? String
         let category = record["category"] as? CKRecord.Reference
-        let releaseDate = record["release_date"] as? Date
         let authors = record["authors"] as? [String]
         let addonURL = (record["addon"] as? CKAsset)?.fileURL
         let demoObjectName = record["demo_object_name"] as? String
         let type = record["type"] as? String
         let mainScriptName = record["main_script_name"] as? String
         let coverImageURL = (record["cover_image"] as? CKAsset)?.fileURL
+        let rank = record["rank"] as? Int
 
         let dependencies = record["dependencies"] as? [String]
         if let dependencies {
@@ -560,7 +571,8 @@ public final class Validator {
                     type: type,
                     mainScriptName: mainScriptName,
                     relatedObjectPaths: needsUpdateRelatedObjectPaths ? relatedObjectPaths : nil,
-                    dependencies:  dependencies?.map { CKRecord.Reference(recordID: CKRecord.ID(recordName: $0), action: .none) }
+                    dependencies:  dependencies?.map { CKRecord.Reference(recordID: CKRecord.ID(recordName: $0), action: .none) },
+                    rank: rank
                 )
             )
         }
@@ -593,7 +605,6 @@ public final class Validator {
                 authors: authors,
                 description: description,
                 demoObjectName: demoObjectName,
-                releaseDate: releaseDate,
                 coverImage: coverImageURL,
                 addon: addonURL,
                 richDescription: richDescription,
@@ -601,42 +612,61 @@ public final class Validator {
                 removeRichDescription: removeRichDescription,
                 relatedObjectPaths: needsUpdateRelatedObjectPaths ? relatedObjectPaths : nil,
                 dependencies: dependencies?.map { CKRecord.Reference(recordID: CKRecord.ID(recordName: $0), action: .none) },
-                removeDependencies: removeDependencies
+                removeDependencies: removeDependencies,
+                rank: rank
             )
         )
     }
 }
 
 extension Validator {
-    private func readString(directoryPath: String, filename: String) -> String? {
+    private func readString(directoryPath: String, filename: String) throws -> String? {
         let file = (directoryPath as NSString).appendingPathComponent(filename)
         if !FileManager.default.fileExists(atPath: file) {
             return nil
         }
-        let contents = try! Data(contentsOf: URL(fileURLWithPath: file))
-        return String(data: contents, encoding: .utf8)!.trimmingCharacters(in: .whitespacesAndNewlines)
+
+        let contents: Data
+        do {
+            contents = try Data(contentsOf: URL(fileURLWithPath: file))
+        } catch {
+            throw ValidatorError.invalidText(fieldName: filename)
+        }
+
+        guard let string = String(data: contents, encoding: .utf8) else {
+            throw ValidatorError.invalidText(fieldName: filename)
+        }
+        return string.trimmingCharacters(in: .whitespacesAndNewlines)
     }
 
-    private func readStringList(directoryPath: String, filename: String) -> [String]? {
-        let file = (directoryPath as NSString).appendingPathComponent(filename)
-        if !FileManager.default.fileExists(atPath: file) {
+    private func readStringList(directoryPath: String, filename: String) throws -> [String]? {
+        guard let string = try readString(directoryPath: directoryPath, filename: filename) else {
             return nil
         }
-        let contents = try! Data(contentsOf: URL(fileURLWithPath: file))
-        return String(data: contents, encoding: .utf8)!.trimmingCharacters(in: .whitespacesAndNewlines).replacingOccurrences(of: "\r\n", with: "\n").split(separator: "\n").map({ String($0) }).filter { !$0.isEmpty }
+        return string.trimmingCharacters(in: .whitespacesAndNewlines).replacingOccurrences(of: "\r\n", with: "\n").split(separator: "\n").map({ String($0) }).filter { !$0.isEmpty }
     }
 
-    private func readDate(directoryPath: String, filename: String) -> Date? {
+    private func readDate(directoryPath: String, filename: String) throws -> Date? {
+        guard let string = try readString(directoryPath: directoryPath, filename: filename) else {
+            return nil
+        }
         let dateFormatter = DateFormatter()
         dateFormatter.dateFormat = "yyyy/MM/dd HH:mm:ss"
         dateFormatter.timeZone = TimeZone(identifier: "GMT")
-        let file = (directoryPath as NSString).appendingPathComponent(filename)
-        if !FileManager.default.fileExists(atPath: file) {
+        guard let date = dateFormatter.date(from: string) else {
+            throw ValidatorError.invalidDate(text: string, fieldName: filename)
+        }
+        return date
+    }
+
+    private func readInt(directoryPath: String, filename: String) throws -> Int? {
+        guard let string = try readString(directoryPath: directoryPath, filename: filename) else {
             return nil
         }
-        let contents = try! Data(contentsOf: URL(fileURLWithPath: file))
-        let string = String(data: contents, encoding: .utf8)!.trimmingCharacters(in: .whitespacesAndNewlines)
-        return dateFormatter.date(from: string)!
+        guard let int = Int(string) else {
+            throw ValidatorError.invalidInt(text: string, fieldName: filename)
+        }
+        return int
     }
 }
 

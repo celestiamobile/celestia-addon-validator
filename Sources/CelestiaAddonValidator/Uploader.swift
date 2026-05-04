@@ -122,6 +122,7 @@ public final class Uploader {
         record["thumbnail"] = CKAsset(fileURL: localThumbnailURL)
         record["item"] = CKAsset(fileURL: localAddonURL)
         record["dependencies"] = item.dependencies?.isEmpty == false ? item.dependencies : nil
+        record["rank"] = item.rank
         if let richDescriptionID {
             record["localizedHTMLReferences"] = "{ \"en\": \"\(richDescriptionID.recordName)\" }"
         } else {
@@ -186,9 +187,6 @@ public final class Uploader {
         if let category = item.category {
             record["category"] = category
         }
-        if let releaseDate = item.releaseDate {
-            record["publishTime"] = releaseDate
-        }
         if let demoObjectName = item.demoObjectName {
             record["objectName"] = demoObjectName
         }
@@ -205,6 +203,9 @@ public final class Uploader {
         }
         if let relatedObjectPaths = item.relatedObjectPaths {
             record["relatedObjectPaths"] = relatedObjectPaths
+        }
+        if let rank = item.rank {
+            record["rank"] = rank
         }
 
         if item.removeDependencies {
