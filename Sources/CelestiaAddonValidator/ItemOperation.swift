@@ -13,6 +13,9 @@ public extension ItemOperation {
             return "Removing item with ID: \(item.id.recordName)"
         case .update(let item):
             var texts = ["Updating item with ID: \(item.id.recordName)"]
+            if let rank = item.rank {
+                texts.append("Rank: \(rank)")
+            }
             if let title = item.title {
                 texts.append("Title: \(title)")
             }
@@ -27,6 +30,9 @@ public extension ItemOperation {
             }
             if let demoObjectName = item.demoObjectName {
                 texts.append("Demo Object Name: \(demoObjectName)")
+            }
+            if let mainScriptName = item.mainScriptName {
+                texts.append("Main Script Name: \(mainScriptName)")
             }
             if let relatedObjectPaths = item.relatedObjectPaths {
                 texts.append("Related Object Paths: \(relatedObjectPaths)")
@@ -53,12 +59,18 @@ public extension ItemOperation {
             if let idRequirement = item.idRequirement {
                 texts.append("ID Requirement: \(idRequirement)")
             }
+            if let rank = item.rank {
+                texts.append("Rank: \(rank)")
+            }
             texts.append("Title: \(item.title)")
             texts.append("Descrpition: \(item.description)")
             texts.append("Category: \(item.category.recordID.recordName)")
             texts.append("Authors: \(item.authors.joined(separator: ", "))")
             if let demoObjectName = item.demoObjectName {
                 texts.append("Demo Object Name: \(demoObjectName)")
+            }
+            if let mainScriptName = item.mainScriptName {
+                texts.append("Main Script Name: \(mainScriptName)")
             }
             if let relatedObjectPaths = item.relatedObjectPaths {
                 texts.append("Related Object Paths: \(relatedObjectPaths)")
