@@ -14,17 +14,6 @@ struct SyncCoordinator {
     let steamUsername: String
     let dryRun: Bool
 
-    /// CloudKit field names the sync hashes individually so changenotes can
-    /// say "updated title, description, authors" rather than just
-    /// "metadata changed". Order is stable for hash determinism.
-    private static let trackedFields = [
-        "name",
-        "description",
-        "category",
-        "authors",
-        "type",
-    ]
-
     func run() async throws {
         let store = try StateStore(root: stateDir)
         let previous = store.readLastRun()
@@ -183,14 +172,10 @@ struct SyncCoordinator {
         previewChecksum: String?,
         fieldHashes: [String: String]
     ) -> ChangeSet {
-        var changedFields: [String] = []
-        for field in Self.trackedFields {
-            let prior = priorState.fieldHashes[field]
-            let current = fieldHashes[field]
-            if prior != current {
-                changedFields.append(field)
-            }
-        }
+        let changedFields = fieldHashes
+            .filter { priorState.fieldHashes[$0.key] != $0.value }
+            .map { $0.key }
+            .sorted()
         return ChangeSet(
             contentChanged: contentChecksum != priorState.contentChecksum,
             previewChanged: previewChecksum != priorState.previewChecksum,
@@ -198,33 +183,18 @@ struct SyncCoordinator {
         )
     }
 
-    /// For each tracked field, sha256 its canonical text form. Hashing the
-    /// *value* (not the raw CloudKit encoding) keeps the hash stable across
+    /// Per-field sha256 over a canonical text form. Hashing the *value*
+    /// (not the raw CloudKit encoding) keeps the hash stable across
     /// encoding quirks.
     private func computeFieldHashes(addon: WorkshopAddonRecord) -> [String: String] {
-        var result: [String: String] = [:]
-        for field in Self.trackedFields {
-            let canonical = canonicalize(field: field, addon: addon)
-            result[field] = sha256(canonical)
-        }
-        return result
-    }
-
-    private func canonicalize(field: String, addon: WorkshopAddonRecord) -> String {
-        switch field {
-        case "name":
-            return addon.name
-        case "description":
-            return addon.description
-        case "category":
-            return addon.category?.recordName ?? ""
-        case "authors":
-            // Sort for stability — different upload order shouldn't bump the hash.
-            return (addon.authors ?? []).sorted().joined(separator: "\u{1F}")
-        case "type":
-            return addon.type ?? ""
-        default:
-            return ""
-        }
+        // `authors` is sorted so a reordering by the publisher doesn't bump the hash.
+        let authors = (addon.authors ?? []).sorted().joined(separator: "\u{1F}")
+        return [
+            "name":        sha256(addon.name),
+            "description": sha256(addon.description),
+            "category":    sha256(addon.category?.recordName ?? ""),
+            "authors":     sha256(authors),
+            "type":        sha256(addon.type ?? ""),
+        ]
     }
 }
