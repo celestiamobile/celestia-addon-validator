@@ -45,6 +45,9 @@ struct CelestiaWorkshopSyncApp: AsyncParsableCommand {
     @Flag(help: "Compute changes but do not upload to Steam Workshop or write state files.")
     var dryRun = false
 
+    @Option(help: "Maximum number of items to actually upload this run. 0 = no cap. Useful for staging the first bulk sync.")
+    var limit: Int = 0
+
     mutating func run() async throws {
         let config: CKContainerConfig
         if let keyID, let keyFilePath {
@@ -62,7 +65,8 @@ struct CelestiaWorkshopSyncApp: AsyncParsableCommand {
             steamcmdPath: URL(fileURLWithPath: steamcmdPath),
             appID: appID,
             steamUsername: steamUsername,
-            dryRun: dryRun
+            dryRun: dryRun,
+            limit: limit
         )
         try await coordinator.run()
     }

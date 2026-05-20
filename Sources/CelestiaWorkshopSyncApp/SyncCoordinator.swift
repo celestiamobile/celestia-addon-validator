@@ -13,6 +13,9 @@ struct SyncCoordinator {
     let appID: String
     let steamUsername: String
     let dryRun: Bool
+    /// 0 = unlimited. Otherwise cap actual uploads this run; useful for
+    /// staging the first bulk sync without committing to 2000+ hits.
+    let limit: Int
 
     func run() async throws {
         let store = try StateStore(root: stateDir)
@@ -38,7 +41,13 @@ struct SyncCoordinator {
             unhiddenCount: 0
         )
 
+        let uploader = WorkshopUploader(
+            appID: appID,
+            steamcmd: SteamCmdRunner(steamcmdPath: steamcmdPath, username: steamUsername)
+        )
+
         let decoder = CloudKitRecordDecoder()
+        var actionedCount = 0
         for record in records {
             guard let addon = try? decoder.decode(WorkshopAddonRecord.self, from: record) else {
                 print("[?] failed to decode WorkshopAddonRecord for record \(record.recordID.recordName) — skipping")
@@ -70,16 +79,46 @@ struct SyncCoordinator {
             switch action {
             case .skipUnchanged, .skipNotPublishable:
                 summary.skippedCount += 1
-            case .create, .update, .unhide:
-                // TODO(step 2b): perform the Workshop upload via steamcmd.
-                // changenote = ChangeSet.summary (or "Initial upload" for create).
-                // description = addon.description + "\n\nAuthors: <joined>" when
-                // the record has authors.
-                summary.uploadedCount += 1
-                if case .unhide = action { summary.unhiddenCount += 1 }
-            case .hide:
-                // TODO(step 2b): flip Workshop visibility to hidden via steamcmd
-                summary.hiddenCount += 1
+                continue
+            case .create, .update, .unhide, .hide:
+                break
+            }
+
+            if limit > 0 && actionedCount >= limit {
+                print("[\(addonId)] reached --limit \(limit), stopping further uploads this run")
+                summary.skippedCount += 1
+                continue
+            }
+            actionedCount += 1
+
+            if dryRun {
+                print("  [dry-run] would upload via steamcmd")
+                bumpCounters(&summary, for: action)
+                continue
+            }
+
+            do {
+                let newState = try await uploader.upload(
+                    addon: addon,
+                    action: action,
+                    priorState: priorState,
+                    contentChecksum: contentChecksum,
+                    previewChecksum: previewChecksum,
+                    fieldHashes: fieldHashes
+                )
+                try store.writeAddonState(newState)
+                bumpCounters(&summary, for: action)
+            } catch {
+                summary.failedCount += 1
+                print("[\(addonId)] upload failed: \(error.localizedDescription)")
+                if let prior = priorState {
+                    var bumped = prior
+                    bumped.failureCount += 1
+                    bumped.lastFailedAt = Date()
+                    try? store.writeAddonState(bumped)
+                }
+                // Otherwise (no prior state, brand-new addon) just drop the
+                // attempt — next run will retry.
             }
         }
 
@@ -87,10 +126,22 @@ struct SyncCoordinator {
         if dryRun {
             print("\n[dry-run] would write last_run.json: \(summary)")
         } else {
-            // TODO(step 2b): write summary back. Skipping for now since the
-            // upload side isn't wired up — bumping last_run on a no-op run
-            // would falsely advance the watermark.
-            print("\nstep-2a end. last_run.json not written until upload path is wired up.")
+            try store.writeLastRun(summary)
+            print("\nWrote last_run.json: \(summary)")
+        }
+    }
+
+    private func bumpCounters(_ summary: inout LastRunState, for action: SyncAction) {
+        switch action {
+        case .create, .update:
+            summary.uploadedCount += 1
+        case .unhide:
+            summary.uploadedCount += 1
+            summary.unhiddenCount += 1
+        case .hide:
+            summary.hiddenCount += 1
+        case .skipUnchanged, .skipNotPublishable:
+            break
         }
     }
 
