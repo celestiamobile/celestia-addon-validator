@@ -56,6 +56,7 @@ struct SyncCoordinator {
             let contentChecksum = addon.item.fileChecksum
             let previewChecksum = addon.image?.fileChecksum
             let fieldHashes = computeFieldHashes(addon: addon)
+            let categoryIsSet = addon.category != nil
             let action = decideAction(
                 priorState: priorState,
                 categoryIsSet: categoryIsSet,
