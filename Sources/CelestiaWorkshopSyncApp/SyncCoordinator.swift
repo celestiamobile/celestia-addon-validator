@@ -1,9 +1,11 @@
+import CelestiaAddonValidator
 import Foundation
+import OpenCloudKit
 
 /// Orchestrates one run of the sync: pulls add-on records from CloudKit,
-/// compares each against the state files in `stateDir`, and re-uploads any
-/// that have changed via `steamcmd`. Real implementation lands in the next
-/// commit — this is the structural stub.
+/// compares each against the state files under `stateDir`, and decides
+/// what action to take. In this commit it stops at the decision step and
+/// prints a plan — actual Workshop uploads land in the next commit.
 struct SyncCoordinator {
     let stateDir: URL
     let steamcmdPath: URL
@@ -11,24 +13,219 @@ struct SyncCoordinator {
     let steamUsername: String
     let dryRun: Bool
 
+    /// CloudKit field names the sync hashes individually so changenotes can
+    /// say "updated title, description, authors" rather than just
+    /// "metadata changed". Order is stable for hash determinism.
+    private static let trackedFields = [
+        "name",
+        "description",
+        "category",
+        "authors",
+        "type",
+    ]
+
     func run() async throws {
-        // TODO: implement in next commit
-        //   1. Load last_run.json from stateDir
-        //   2. Query CloudKit ResourceItem records (publishTime/lastUpdateTime > lastRun)
-        //   3. For each record:
-        //      a. Read addons/<recordName>.json (may not exist)
-        //      b. Compare CKAsset fileChecksum to stored contentHash
-        //      c. Compute metadataHash over name/type/category/etc.
-        //      d. If anything differs, download the asset, stage workshop
-        //         content matching the description.json schema, generate a
-        //         workshopitem.vdf, invoke steamcmd, capture PublishedFileId
-        //      e. Write addons/<recordName>.json
-        //   4. Write last_run.json with stats
-        print("[CelestiaWorkshopSyncApp] stub run() — nothing wired up yet.")
-        print("  stateDir:      \(stateDir.path)")
-        print("  steamcmdPath:  \(steamcmdPath.path)")
-        print("  appID:         \(appID)")
-        print("  steamUsername: \(steamUsername)")
-        print("  dryRun:        \(dryRun)")
+        let store = try StateStore(root: stateDir)
+        let previous = store.readLastRun()
+        let startedAt = Date()
+        print("Run starting at \(startedAt)")
+        if let previous {
+            print("Previous run completed at \(previous.completedAt)")
+        } else {
+            print("No previous run state found — first run.")
+        }
+
+        let records = try await fetchAddonRecords()
+        print("Fetched \(records.count) ResourceItem records from CloudKit")
+
+        var summary = LastRunState(
+            completedAt: startedAt,
+            scannedAddonCount: records.count,
+            uploadedCount: 0,
+            skippedCount: 0,
+            failedCount: 0,
+            hiddenCount: 0,
+            unhiddenCount: 0
+        )
+
+        let decoder = CloudKitRecordDecoder()
+        for record in records {
+            guard let addon = try? decoder.decode(CloudKitAddon.self, from: record) else {
+                print("[?] failed to decode CloudKitAddon for record \(record.recordID.recordName) — skipping")
+                continue
+            }
+            let addonId = addon.cloudKitIdentifier
+            let priorState: AddonState?
+            do {
+                priorState = try store.readAddonState(addonId: addonId)
+            } catch {
+                print("[\(addonId)] failed to read state: \(error.localizedDescription) — treating as new")
+                priorState = nil
+            }
+
+            let contentChecksum = addon.item.fileChecksum
+            let previewChecksum = addon.image?.fileChecksum
+            let fieldHashes = computeFieldHashes(record: record)
+            let categoryIsSet = addon.category != nil
+
+            let action = decideAction(
+                priorState: priorState,
+                categoryIsSet: categoryIsSet,
+                contentChecksum: contentChecksum,
+                previewChecksum: previewChecksum,
+                fieldHashes: fieldHashes
+            )
+
+            print("[\(addonId)] \(action.summary) (category=\(categoryIsSet ? "set" : "nil"), checksum=\(String(contentChecksum.prefix(12))))")
+
+            switch action {
+            case .skipUnchanged, .skipNotPublishable:
+                summary.skippedCount += 1
+            case .create, .update, .unhide:
+                // TODO(step 2b): perform the Workshop upload via steamcmd.
+                // changenote = ChangeSet.summary (or "Initial upload" for create).
+                // description = addon.description + "\n\nAuthors: <joined>" when
+                // the record has authors.
+                summary.uploadedCount += 1
+                if case .unhide = action { summary.unhiddenCount += 1 }
+            case .hide:
+                // TODO(step 2b): flip Workshop visibility to hidden via steamcmd
+                summary.hiddenCount += 1
+            }
+        }
+
+        summary.completedAt = Date()
+        if dryRun {
+            print("\n[dry-run] would write last_run.json: \(summary)")
+        } else {
+            // TODO(step 2b): write summary back. Skipping for now since the
+            // upload side isn't wired up — bumping last_run on a no-op run
+            // would falsely advance the watermark.
+            print("\nstep-2a end. last_run.json not written until upload path is wired up.")
+        }
+    }
+
+    /// Fetches every ResourceItem record in the public DB so we can detect
+    /// both publish and unpublish transitions locally. Time-based filtering
+    /// would be faster but would miss category→nil transitions on records
+    /// that haven't otherwise been touched since the last run.
+    private func fetchAddonRecords() async throws -> [CKRecord] {
+        let db = CKContainer.default().publicCloudDatabase
+        let desiredKeys = [
+            "item", "image", "category", "type",
+            "name",
+            "description",
+            "authors",
+            "publishTime", "lastUpdateTime",
+        ]
+        let query = CKQuery(recordType: "ResourceItem", filters: [])
+
+        var records: [CKRecord] = []
+        var (recordResults, cursor) = try await db.records(matching: query, desiredKeys: desiredKeys)
+        for (_, recordResult) in recordResults {
+            if let record = try? recordResult.get() {
+                records.append(record)
+            }
+        }
+        while let currentCursor = cursor {
+            (recordResults, cursor) = try await db.records(continuingMatchFrom: currentCursor, desiredKeys: desiredKeys)
+            for (_, recordResult) in recordResults {
+                if let record = try? recordResult.get() {
+                    records.append(record)
+                }
+            }
+        }
+        return records
+    }
+
+    /// Implements the truth table documented in the state repo README.
+    private func decideAction(
+        priorState: AddonState?,
+        categoryIsSet: Bool,
+        contentChecksum: String,
+        previewChecksum: String?,
+        fieldHashes: [String: String]
+    ) -> SyncAction {
+        switch (categoryIsSet, priorState) {
+        case (false, nil):
+            return .skipNotPublishable
+        case (false, .some(let s)) where s.visibility == .hidden:
+            return .skipNotPublishable
+        case (false, .some):
+            return .hide
+        case (true, nil):
+            return .create
+        case (true, .some(let s)) where s.visibility == .hidden:
+            // Unhide always implies re-asserting current content + metadata,
+            // so synthesize a ChangeSet that lists everything as "changed"
+            // for changenote purposes.
+            let changes = computeChanges(
+                priorState: s,
+                contentChecksum: contentChecksum,
+                previewChecksum: previewChecksum,
+                fieldHashes: fieldHashes
+            )
+            return .unhide(changes: changes)
+        case (true, .some(let s)):
+            let changes = computeChanges(
+                priorState: s,
+                contentChecksum: contentChecksum,
+                previewChecksum: previewChecksum,
+                fieldHashes: fieldHashes
+            )
+            if changes.hasAnyChange { return .update(changes: changes) }
+            return .skipUnchanged
+        }
+    }
+
+    private func computeChanges(
+        priorState: AddonState,
+        contentChecksum: String,
+        previewChecksum: String?,
+        fieldHashes: [String: String]
+    ) -> ChangeSet {
+        var changedFields: [String] = []
+        for field in Self.trackedFields {
+            let prior = priorState.fieldHashes[field]
+            let current = fieldHashes[field]
+            if prior != current {
+                changedFields.append(field)
+            }
+        }
+        return ChangeSet(
+            contentChanged: contentChecksum != priorState.contentChecksum,
+            previewChanged: previewChecksum != priorState.previewChecksum,
+            changedFieldNames: changedFields
+        )
+    }
+
+    /// For each tracked field, sha256 its serialized representation. The
+    /// hash is over a canonical text form so the *value* of the field
+    /// determines stability, not e.g. a CloudKit field encoding quirk.
+    private func computeFieldHashes(record: CKRecord) -> [String: String] {
+        var result: [String: String] = [:]
+        for field in Self.trackedFields {
+            let value = record[field]
+            let canonical = canonicalize(value)
+            result[field] = sha256(canonical)
+        }
+        return result
+    }
+
+    /// Turn a CloudKit field value into a stable string for hashing.
+    private func canonicalize(_ value: CKRecordValueProtocol?) -> String {
+        switch value {
+        case let s as String:
+            return s
+        case let arr as [String]:
+            // Sort for stability — different array order shouldn't change the hash.
+            return arr.sorted().joined(separator: "\u{1F}")
+        case let ref as CKReference:
+            return ref.recordID.recordName
+        case let n as NSNumber:
+            return n.stringValue
+        default:
+            return ""
+        }
     }
 }
