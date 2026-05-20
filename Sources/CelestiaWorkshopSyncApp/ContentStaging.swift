@@ -53,10 +53,14 @@ struct ContentStaging {
         try? FileManager.default.removeItem(at: zipPath)
 
         // 3. Download the preview image (if any) outside the content folder.
+        //    Steam validates the file extension against the actual bytes,
+        //    so the extension has to reflect the real format — we can't
+        //    blindly use ".jpg".
         var previewFile: URL?
         if let image = addon.image {
             let previewData = try await downloadAssetData(image)
-            let preview = rootDir.appendingPathComponent("preview.jpg")
+            let ext = imageExtension(forBytes: previewData)
+            let preview = rootDir.appendingPathComponent("preview.\(ext)")
             try previewData.write(to: preview)
             previewFile = preview
         }
@@ -72,6 +76,30 @@ struct ContentStaging {
         // OpenCloudKit's CKAssetDownloadInfo.url is a plain HTTPS URL on
         // Steam's CDN side, no extra auth needed beyond the URL itself.
         return try await AsyncDataRequestHandler.get(url: info.url.absoluteString)
+    }
+
+    /// Sniff the file format from the first few bytes and return the
+    /// extension Steam expects. Steam Workshop preview images accept
+    /// JPG, PNG, GIF, and BMP. Anything unrecognized falls back to JPG
+    /// (Steam may still reject, but it's our most likely correct guess).
+    private static func imageExtension(forBytes data: Data) -> String {
+        let head = data.prefix(8)
+        let bytes = Array(head)
+        if bytes.count >= 3, bytes[0] == 0xFF, bytes[1] == 0xD8, bytes[2] == 0xFF {
+            return "jpg"
+        }
+        if bytes.count >= 8,
+           bytes[0] == 0x89, bytes[1] == 0x50, bytes[2] == 0x4E, bytes[3] == 0x47,
+           bytes[4] == 0x0D, bytes[5] == 0x0A, bytes[6] == 0x1A, bytes[7] == 0x0A {
+            return "png"
+        }
+        if bytes.count >= 4, bytes[0] == 0x47, bytes[1] == 0x49, bytes[2] == 0x46, bytes[3] == 0x38 {
+            return "gif"
+        }
+        if bytes.count >= 2, bytes[0] == 0x42, bytes[1] == 0x4D {
+            return "bmp"
+        }
+        return "jpg"
     }
 
     private static func makeTempDir(prefix: String) throws -> URL {
