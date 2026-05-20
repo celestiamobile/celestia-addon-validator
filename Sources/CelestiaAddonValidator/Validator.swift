@@ -147,7 +147,6 @@ public final class Validator {
             return .remove(item: RemoveItem(id: CKRecord.ID(recordName: idRequirement)))
         }
         let authors = try readStringList(directoryPath: path, filename: "authors.txt")
-        let releaseDate = try readDate(directoryPath: path, filename: "release_date.txt")
         let demoObjectName = try readString(directoryPath: path, filename: "demo_object_name.txt")
         let type = try readString(directoryPath: path, filename: "type.txt")
         let mainScriptName = try readString(directoryPath: path, filename: "main_script_name.txt")
