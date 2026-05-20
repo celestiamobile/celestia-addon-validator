@@ -1,4 +1,5 @@
 import CelestiaAddonValidator
+import CloudKitCodable
 import Foundation
 import OpenCloudKit
 
@@ -50,8 +51,8 @@ struct SyncCoordinator {
 
         let decoder = CloudKitRecordDecoder()
         for record in records {
-            guard let addon = try? decoder.decode(CloudKitAddon.self, from: record) else {
-                print("[?] failed to decode CloudKitAddon for record \(record.recordID.recordName) — skipping")
+            guard let addon = try? decoder.decode(WorkshopAddonRecord.self, from: record) else {
+                print("[?] failed to decode WorkshopAddonRecord for record \(record.recordID.recordName) — skipping")
                 continue
             }
             let addonId = addon.cloudKitIdentifier
@@ -65,9 +66,7 @@ struct SyncCoordinator {
 
             let contentChecksum = addon.item.fileChecksum
             let previewChecksum = addon.image?.fileChecksum
-            let fieldHashes = computeFieldHashes(record: record)
-            let categoryIsSet = addon.category != nil
-
+            let fieldHashes = computeFieldHashes(addon: addon)
             let action = decideAction(
                 priorState: priorState,
                 categoryIsSet: categoryIsSet,
@@ -199,31 +198,31 @@ struct SyncCoordinator {
         )
     }
 
-    /// For each tracked field, sha256 its serialized representation. The
-    /// hash is over a canonical text form so the *value* of the field
-    /// determines stability, not e.g. a CloudKit field encoding quirk.
-    private func computeFieldHashes(record: CKRecord) -> [String: String] {
+    /// For each tracked field, sha256 its canonical text form. Hashing the
+    /// *value* (not the raw CloudKit encoding) keeps the hash stable across
+    /// encoding quirks.
+    private func computeFieldHashes(addon: WorkshopAddonRecord) -> [String: String] {
         var result: [String: String] = [:]
         for field in Self.trackedFields {
-            let value = record[field]
-            let canonical = canonicalize(value)
+            let canonical = canonicalize(field: field, addon: addon)
             result[field] = sha256(canonical)
         }
         return result
     }
 
-    /// Turn a CloudKit field value into a stable string for hashing.
-    private func canonicalize(_ value: CKRecordValueProtocol?) -> String {
-        switch value {
-        case let s as String:
-            return s
-        case let arr as [String]:
-            // Sort for stability — different array order shouldn't change the hash.
-            return arr.sorted().joined(separator: "\u{1F}")
-        case let ref as CKReference:
-            return ref.recordID.recordName
-        case let n as NSNumber:
-            return n.stringValue
+    private func canonicalize(field: String, addon: WorkshopAddonRecord) -> String {
+        switch field {
+        case "name":
+            return addon.name
+        case "description":
+            return addon.description
+        case "category":
+            return addon.category?.recordName ?? ""
+        case "authors":
+            // Sort for stability — different upload order shouldn't bump the hash.
+            return (addon.authors ?? []).sorted().joined(separator: "\u{1F}")
+        case "type":
+            return addon.type ?? ""
         default:
             return ""
         }
