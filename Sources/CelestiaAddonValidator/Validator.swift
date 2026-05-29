@@ -241,7 +241,7 @@ public final class Validator {
             guard let type, ["addon", "script"].contains(type) else {
                 throw ValidatorError.badType(type: type ?? "none")
             }
-            let (relatedObjectPaths, needsUpdateRelatedObjectPaths) = try await validateAddonContents(location: .local(url: addonURL))
+            let (relatedObjectPaths, filteredObjectPaths) = try await validateAddonContents(location: .local(url: addonURL, targetId: nil))
             if let demoObjectName, !relatedObjectPaths.contains(where: { demoObjectName == $0 || $0.hasPrefix("\(demoObjectName)/") }) {
                 throw ValidatorError.badDemoObject(supportedPaths: relatedObjectPaths)
             }
@@ -258,7 +258,7 @@ public final class Validator {
                     richDescription: richDescription,
                     type: type,
                     mainScriptName: mainScriptName,
-                    relatedObjectPaths: needsUpdateRelatedObjectPaths ? relatedObjectPaths : nil,
+                    relatedObjectPaths: filteredObjectPaths,
                     dependencies: dependencies?.map { CKRecord.Reference(recordID: CKRecord.ID(recordName: $0), action: .none) },
                     rank: rank
                 )
@@ -281,11 +281,11 @@ public final class Validator {
         }
 
         let relatedObjectPaths: [String]
-        let needsUpdateRelatedObjectPaths: Bool
+        let filteredObjectPaths: [String]?
         if let addonURL {
-            (relatedObjectPaths, needsUpdateRelatedObjectPaths) = try await validateAddonContents(location: .local(url: addonURL))
+            (relatedObjectPaths, filteredObjectPaths) = try await validateAddonContents(location: .local(url: addonURL, targetId: idRequirement))
         } else {
-            (relatedObjectPaths, needsUpdateRelatedObjectPaths) = try await validateAddonContents(location: .remote(id: idRequirement))
+            (relatedObjectPaths, filteredObjectPaths) = try await validateAddonContents(location: .remote(id: idRequirement))
         }
         if let demoObjectName, !relatedObjectPaths.contains(where: { demoObjectName == $0 || $0.hasPrefix("\(demoObjectName)/") }) {
             throw ValidatorError.badDemoObject(supportedPaths: relatedObjectPaths)
@@ -303,7 +303,7 @@ public final class Validator {
                 richDescription: richDescription,
                 mainScriptName: mainScriptName,
                 removeRichDescription: removeRichDescription,
-                relatedObjectPaths: needsUpdateRelatedObjectPaths ? relatedObjectPaths : nil,
+                relatedObjectPaths: filteredObjectPaths,
                 dependencies: dependencies?.map { CKRecord.Reference(recordID: CKRecord.ID(recordName: $0), action: .none) },
                 removeDependencies: removeDependencies,
                 rank: rank
@@ -312,7 +312,7 @@ public final class Validator {
     }
 
     private enum AddonLocation {
-        case local(url: URL)
+        case local(url: URL, targetId: String?)
         case remote(id: String)
     }
 
@@ -337,10 +337,32 @@ public final class Validator {
         }
     }
 
-    private func validateAddonContents(location: AddonLocation) async throws -> ([String], Bool) {
+    private func validateAddonContents(location: AddonLocation) async throws -> (relatedObjectPaths: [String], filteredObjectPaths: [String]?) {
+        let db = CKContainer.default().publicCloudDatabase
         let addonURL: URL
+
+        var existingRelatedObjectPaths: [String]?
         switch location {
-        case let .local(url):
+        case let .local(url, targetId):
+            if let targetId {
+                let recordId = CKRecord.ID(recordName: targetId)
+                let recordResult: Result<CKRecord, Error>?
+                do {
+                    recordResult = try await db.records(for: [recordId], desiredKeys: ["relatedObjectPaths"])[recordId]
+                } catch {
+                    throw ValidatorError.cloudKit(error: error)
+                }
+                guard let recordResult else {
+                    throw ValidatorError.emptyResult
+                }
+                switch recordResult {
+                case let .success(record):
+                    existingRelatedObjectPaths = record["relatedObjectPaths"] as? [String] ?? []
+                case let .failure(error):
+                    throw ValidatorError.cloudKit(error: error)
+                }
+            }
+
             if url.isFileURL {
                 addonURL = url
             } else {
@@ -350,7 +372,6 @@ public final class Validator {
                 addonURL = downloadedURL
             }
         case let .remote(id):
-            let db = CKContainer.default().publicCloudDatabase
             let recordId = CKRecord.ID(recordName: id)
             let recordResult: Result<CKRecord, Error>?
             do {
@@ -364,7 +385,7 @@ public final class Validator {
             switch recordResult {
             case let .success(record):
                 if let relatedObjectPaths = record["relatedObjectPaths"] as? [String] {
-                    return (relatedObjectPaths, false)
+                    return (relatedObjectPaths, nil)
                 }
 
                 guard let addon = record["item"] as? CKAsset else {
@@ -438,8 +459,15 @@ public final class Validator {
             }
             objectPaths.append(contentsOf: CatalogObjectPathExtractor.extractObjectPaths(from: content).objectPaths)
         }
-        let filtered = Array(Set(objectPaths))
-        return (filtered, filtered.count < 50)
+        let relatedObjectPaths = Array(Set(objectPaths)).sorted()
+        var filteredObjectPaths = relatedObjectPaths.count < 50 ? relatedObjectPaths : nil
+        if let existingRelatedObjectPaths {
+            let objectPathsToCompare = filteredObjectPaths ?? []
+            if objectPathsToCompare != existingRelatedObjectPaths {
+                filteredObjectPaths = objectPathsToCompare
+            }
+        }
+        return (relatedObjectPaths, filteredObjectPaths)
     }
 
     public func validate(record: CKRecord) async throws -> ItemOperation {
@@ -552,7 +580,7 @@ public final class Validator {
             guard let type, ["addon", "script"].contains(type) else {
                 throw ValidatorError.badType(type: type ?? "none")
             }
-            let (relatedObjectPaths, needsUpdateRelatedObjectPaths) = try await validateAddonContents(location: .local(url: addonURL))
+            let (relatedObjectPaths, filteredObjectPaths) = try await validateAddonContents(location: .local(url: addonURL, targetId: nil))
             if let demoObjectName, !relatedObjectPaths.contains(where: { demoObjectName == $0 || $0.hasPrefix("\(demoObjectName)/") }) {
                 throw ValidatorError.badDemoObject(supportedPaths: relatedObjectPaths)
             }
@@ -569,7 +597,7 @@ public final class Validator {
                     richDescription: richDescription,
                     type: type,
                     mainScriptName: mainScriptName,
-                    relatedObjectPaths: needsUpdateRelatedObjectPaths ? relatedObjectPaths : nil,
+                    relatedObjectPaths: filteredObjectPaths,
                     dependencies:  dependencies?.map { CKRecord.Reference(recordID: CKRecord.ID(recordName: $0), action: .none) },
                     rank: rank
                 )
@@ -584,11 +612,11 @@ public final class Validator {
         }
 
         let relatedObjectPaths: [String]
-        let needsUpdateRelatedObjectPaths: Bool
+        let filteredObjectPaths: [String]?
         if let addonURL {
-            (relatedObjectPaths, needsUpdateRelatedObjectPaths) = try await validateAddonContents(location: .local(url: addonURL))
+            (relatedObjectPaths, filteredObjectPaths) = try await validateAddonContents(location: .local(url: addonURL, targetId: idRequirement))
         } else {
-            (relatedObjectPaths, needsUpdateRelatedObjectPaths) = try await validateAddonContents(location: .remote(id: idRequirement))
+            (relatedObjectPaths, filteredObjectPaths) = try await validateAddonContents(location: .remote(id: idRequirement))
         }
 
         if let demoObjectName, !relatedObjectPaths.contains(where: { demoObjectName == $0 || $0.hasPrefix("\(demoObjectName)/") }) {
@@ -609,7 +637,7 @@ public final class Validator {
                 richDescription: richDescription,
                 mainScriptName: mainScriptName,
                 removeRichDescription: removeRichDescription,
-                relatedObjectPaths: needsUpdateRelatedObjectPaths ? relatedObjectPaths : nil,
+                relatedObjectPaths: filteredObjectPaths,
                 dependencies: dependencies?.map { CKRecord.Reference(recordID: CKRecord.ID(recordName: $0), action: .none) },
                 removeDependencies: removeDependencies,
                 rank: rank
