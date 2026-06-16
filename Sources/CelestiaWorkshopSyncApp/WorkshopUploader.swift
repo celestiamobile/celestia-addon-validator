@@ -63,6 +63,8 @@ struct WorkshopUploader {
         if !authors.isEmpty {
             body += "\n\nBy " + authors.joined(separator: ", ")
         }
+        let addonID = addon.cloudKitIdentifier
+        body += "\n\nhttps://celestia.mobi/resources/item/\(addonID)"
         return body
     }
 
