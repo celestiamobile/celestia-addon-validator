@@ -29,7 +29,9 @@ struct SteamCmdRunner {
 
     /// Invokes `steamcmd +login USER +workshop_build_item VDF +quit` and
     /// returns the (created/updated) PublishedFileId from the stdout.
-    func uploadWorkshopItem(vdfPath: URL) throws -> UploadResult {
+    /// For updates, steamcmd may not echo the ID — pass `expectedFileId`
+    /// so the runner can fall back to it on success.
+    func uploadWorkshopItem(vdfPath: URL, expectedFileId: String? = nil) throws -> UploadResult {
         let process = Process()
         process.executableURL = steamcmdPath
         process.arguments = [
@@ -59,23 +61,34 @@ struct SteamCmdRunner {
             )
         }
 
-        return try parsePublishedFileId(stdout: stdout)
+        return try parsePublishedFileId(stdout: stdout, expectedFileId: expectedFileId)
     }
 
     /// steamcmd prints one of:
     ///   "Successfully created item ID 1234567890"
     ///   "Successfully updated item ID 1234567890"
-    private func parsePublishedFileId(stdout: String) throws -> UploadResult {
+    ///   "Create new workshop item ( PublishFileID 1234567890)."
+    /// For updates on macOS it may only print "Committing update...Success."
+    /// without an ID — fall back to expectedFileId in that case.
+    private func parsePublishedFileId(stdout: String, expectedFileId: String?) throws -> UploadResult {
         for line in stdout.components(separatedBy: .newlines) {
             let trimmed = line.trimmingCharacters(in: .whitespaces)
             if let m = parseLine(trimmed) {
                 return m
             }
         }
+        // On macOS, updates print "Committing update...Success." without an ID.
+        if let expectedFileId, stdout.contains("Success") {
+            return UploadResult(publishedFileId: expectedFileId, wasCreated: false)
+        }
         throw RunnerError.noPublishedFileIdInOutput(stdout: stdout)
     }
 
     private func parseLine(_ line: String) -> UploadResult? {
+        // Steamcmd output varies by platform/version. Known patterns:
+        //   "Successfully created item ID 1234567890"
+        //   "Successfully updated item ID 1234567890"
+        //   "Create new workshop item ( PublishFileID 1234567890)."
         let createdPrefix = "Successfully created item ID "
         let updatedPrefix = "Successfully updated item ID "
         if line.hasPrefix(createdPrefix) {
@@ -87,6 +100,14 @@ struct SteamCmdRunner {
             let id = String(line.dropFirst(updatedPrefix.count))
                 .trimmingCharacters(in: CharacterSet.decimalDigits.inverted)
             return id.isEmpty ? nil : UploadResult(publishedFileId: id, wasCreated: false)
+        }
+        // macOS steamcmd pattern: "Create new workshop item ( PublishFileID 1234567890)."
+        if line.contains("PublishFileID") || line.contains("PublishedFileId") {
+            let digits = line.components(separatedBy: CharacterSet.decimalDigits.inverted).filter { !$0.isEmpty }
+            if let id = digits.last, !id.isEmpty {
+                let isCreate = line.contains("Create") || line.contains("created")
+                return UploadResult(publishedFileId: id, wasCreated: isCreate)
+            }
         }
         return nil
     }

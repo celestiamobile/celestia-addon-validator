@@ -39,7 +39,7 @@ struct WorkshopUploader {
         )
         try vdf.write(to: vdfPath, atomically: true, encoding: .utf8)
 
-        let result = try steamcmd.uploadWorkshopItem(vdfPath: vdfPath)
+        let result = try steamcmd.uploadWorkshopItem(vdfPath: vdfPath, expectedFileId: priorState?.workshopId)
 
         return AddonState(
             addonId: addon.cloudKitIdentifier,
