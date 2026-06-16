@@ -50,7 +50,7 @@ jobs:
       run: |
         mkdir -p ~/steamcmd
         cd ~/steamcmd
-        curl -sqL https://media.steampowered.com/client/steamcmd_osx.tar.gz | tar zxvf -
+        curl -sqL https://steamcdn-a.akamaihd.net/client/installer/steamcmd_osx.tar.gz | tar zxvf -
 
     - name: Restore Steam Guard session
       env:
