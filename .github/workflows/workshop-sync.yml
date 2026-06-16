@@ -1,0 +1,97 @@
+name: Workshop Sync
+
+on:
+  schedule:
+    - cron: '0 6 * * *'  # daily at 06:00 UTC
+  workflow_dispatch:
+    inputs:
+      limit:
+        description: 'Max items to upload (0 = no cap)'
+        required: false
+        default: '100'
+      dry_run:
+        description: 'Dry run (no uploads)'
+        required: false
+        type: boolean
+        default: false
+
+concurrency:
+  group: ${{ github.workflow }}
+  cancel-in-progress: false
+
+jobs:
+  sync:
+    name: "Sync add-ons to Steam Workshop"
+    runs-on: macos-15
+    permissions:
+      contents: read
+
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v4
+      with:
+        ref: workshop-sync
+
+    - name: Checkout state repo
+      uses: actions/checkout@v4
+      with:
+        repository: celestiamobile/celestia-steam-workshop-history
+        token: ${{ secrets.GH_ACCESS_TOKEN }}
+        path: state
+
+    - name: Get CloudKit credentials
+      env:
+        CLOUDKIT_KEY_BASE64: ${{ secrets.CLOUDKIT_KEY_BASE64 }}
+      run: |
+        CLOUDKIT_KEY_PATH=$RUNNER_TEMP/key.pem
+        echo -n "$CLOUDKIT_KEY_BASE64" | base64 --decode --output $CLOUDKIT_KEY_PATH
+
+    - name: Install SteamCMD
+      run: |
+        brew install steamcmd
+
+    - name: Restore Steam Guard session
+      env:
+        STEAM_CONFIG_VDF: ${{ secrets.STEAM_CONFIG_VDF }}
+      run: |
+        mkdir -p ~/Library/Application\ Support/Steam/config
+        echo "$STEAM_CONFIG_VDF" | base64 -d > ~/Library/Application\ Support/Steam/config/config.vdf
+        chmod 600 ~/Library/Application\ Support/Steam/config/config.vdf
+
+    - name: Build
+      run: swift build -c release
+
+    - name: Run Workshop Sync
+      env:
+        CLOUDKIT_KEY_ID: ${{ secrets.CLOUDKIT_KEY_ID }}
+        STEAM_USERNAME: ${{ secrets.STEAM_USERNAME }}
+      run: |
+        LIMIT="${{ inputs.limit || '100' }}"
+        DRY_RUN=""
+        if [ "${{ inputs.dry_run }}" = "true" ]; then
+          DRY_RUN="--dry-run"
+        fi
+
+        .build/release/CelestiaWorkshopSyncApp \
+          --key-file-path $RUNNER_TEMP/key.pem \
+          --key-id "$CLOUDKIT_KEY_ID" \
+          --state-dir ${{ github.workspace }}/state \
+          --steamcmd-path $(which steamcmd) \
+          --app-id 4753420 \
+          --steam-username "$STEAM_USERNAME" \
+          --limit "$LIMIT" \
+          $DRY_RUN
+
+    - name: Push state changes
+      if: inputs.dry_run != 'true'
+      run: |
+        cd state
+        git config user.name "github-actions[bot]"
+        git config user.email "github-actions[bot]@users.noreply.github.com"
+        if [ -n "$(git status --porcelain)" ]; then
+          git add -A
+          git commit -m "Workshop sync $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+          git push
+        else
+          echo "No state changes to commit."
+        fi
