@@ -48,15 +48,25 @@ jobs:
 
     - name: Install SteamCMD
       run: |
-        brew install steamcmd
+        mkdir -p ~/steamcmd
+        cd ~/steamcmd
+        curl -sqL https://media.steampowered.com/client/steamcmd_osx.tar.gz | tar zxvf -
 
     - name: Restore Steam Guard session
       env:
         STEAM_CONFIG_VDF: ${{ secrets.STEAM_CONFIG_VDF }}
       run: |
+        # steamcmd on macOS looks in ~/Library/Application Support/Steam/config
+        # Write to both locations for safety.
         mkdir -p ~/Library/Application\ Support/Steam/config
         echo "$STEAM_CONFIG_VDF" | base64 -d > ~/Library/Application\ Support/Steam/config/config.vdf
         chmod 600 ~/Library/Application\ Support/Steam/config/config.vdf
+
+    - name: Verify SteamCMD login
+      env:
+        STEAM_USERNAME: ${{ secrets.STEAM_USERNAME }}
+      run: |
+        ~/steamcmd/steamcmd.sh +login "$STEAM_USERNAME" +quit
 
     - name: Build
       run: swift build -c release
@@ -65,6 +75,7 @@ jobs:
       env:
         CLOUDKIT_KEY_ID: ${{ secrets.CLOUDKIT_KEY_ID }}
         STEAM_USERNAME: ${{ secrets.STEAM_USERNAME }}
+      timeout-minutes: 60
       run: |
         LIMIT="${{ inputs.limit || '100' }}"
         DRY_RUN=""
@@ -76,7 +87,7 @@ jobs:
           --key-file-path $RUNNER_TEMP/key.pem \
           --key-id "$CLOUDKIT_KEY_ID" \
           --state-dir ${{ github.workspace }}/state \
-          --steamcmd-path $(which steamcmd) \
+          --steamcmd-path ~/steamcmd/steamcmd.sh \
           --app-id 4753420 \
           --steam-username "$STEAM_USERNAME" \
           --limit "$LIMIT" \

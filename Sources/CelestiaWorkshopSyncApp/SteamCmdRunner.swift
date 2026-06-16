@@ -44,6 +44,8 @@ struct SteamCmdRunner {
         let stderrPipe = Pipe()
         process.standardOutput = stdoutPipe
         process.standardError = stderrPipe
+        // Close stdin so steamcmd cannot block waiting for interactive input
+        process.standardInput = FileHandle.nullDevice
 
         try process.run()
         process.waitUntilExit()
