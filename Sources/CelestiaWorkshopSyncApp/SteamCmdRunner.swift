@@ -19,10 +19,29 @@ struct SteamCmdRunner {
 
         var errorDescription: String? {
             switch self {
-            case .steamcmdFailed(let code, _, let stderr):
-                return "steamcmd exited with code \(code)\nstderr: \(stderr.suffix(2000))"
+            case .steamcmdFailed(let code, let stdout, let stderr):
+                return "steamcmd exited with code \(code)\nstdout: \(String(stdout.suffix(2000)))\nstderr: \(String(stderr.suffix(2000)))"
             case .noPublishedFileIdInOutput:
                 return "steamcmd succeeded but no PublishedFileId was found in its output"
+            }
+        }
+
+        /// Try to extract the PublishedFileId from a failed run's stdout.
+        /// Returns nil if no ID was printed (item was never created).
+        var partialPublishedFileId: String? {
+            switch self {
+            case .steamcmdFailed(_, let stdout, _):
+                for line in stdout.components(separatedBy: .newlines) {
+                    let trimmed = line.trimmingCharacters(in: .whitespaces)
+                    if trimmed.contains("PublishFileID") || trimmed.contains("PublishedFileId") ||
+                       trimmed.contains("Successfully created item ID") {
+                        let digits = trimmed.components(separatedBy: CharacterSet.decimalDigits.inverted).filter { !$0.isEmpty }
+                        if let id = digits.last, !id.isEmpty { return id }
+                    }
+                }
+                return nil
+            case .noPublishedFileIdInOutput:
+                return nil
             }
         }
     }

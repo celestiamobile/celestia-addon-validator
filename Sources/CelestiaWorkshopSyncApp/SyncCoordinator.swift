@@ -111,14 +111,31 @@ struct SyncCoordinator {
             } catch {
                 summary.failedCount += 1
                 print("[\(addonId)] upload failed: \(error.localizedDescription)")
-                if let prior = priorState {
-                    var bumped = prior
-                    bumped.failureCount += 1
-                    bumped.lastFailedAt = Date()
-                    try? store.writeAddonState(bumped)
+
+                // If steamcmd created an item but failed during content upload,
+                // save partial state so the next run retries as an update
+                // instead of creating another orphan.
+                let partialId: String? = (error as? SteamCmdRunner.RunnerError)?.partialPublishedFileId
+                if let workshopId = partialId ?? priorState?.workshopId {
+                    let failedState = AddonState(
+                        addonId: addonId,
+                        workshopId: workshopId,
+                        type: (addon.type == "script") ? .script : .addon,
+                        visibility: .public,
+                        contentChecksum: "",
+                        previewChecksum: nil,
+                        fieldHashes: [:],
+                        lastUploadedAt: priorState?.lastUploadedAt ?? Date.distantPast,
+                        lastFailedAt: Date(),
+                        failureCount: (priorState?.failureCount ?? 0) + 1
+                    )
+                    try? store.writeAddonState(failedState)
+                    if partialId != nil && priorState == nil {
+                        print("[\(addonId)] saved partial state with workshopId \(workshopId) to prevent orphan on retry")
+                    }
                 }
-                // Otherwise (no prior state, brand-new addon) just drop the
-                // attempt — next run will retry.
+                // Otherwise (no prior state, no workshopId parsed) just drop —
+                // next run will retry from scratch.
             }
         }
 
