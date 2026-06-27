@@ -1,5 +1,4 @@
 import ArgumentParser
-import AsyncHTTPClient
 import CelestiaAddonValidator
 import Foundation
 import OpenCloudKit
@@ -55,8 +54,7 @@ struct CelestiaAddonValidatorApp: AsyncParsableCommand {
         }
 
         Validator.configure(config)
-        let httpClient = HTTPClient(eventLoopGroupProvider: .singleton, configuration: .init(connectionPool: .init(idleTimeout: .seconds(60))))
-        do {
+        try await withHTTPClient { httpClient in
             let validator = Validator(httpClient: httpClient)
             let change: ItemOperation
             if let recordID {
@@ -72,10 +70,6 @@ struct CelestiaAddonValidatorApp: AsyncParsableCommand {
                 let uploader = Uploader(httpClient: httpClient)
                 try await uploader.upload(change)
             }
-        } catch {
-            try await httpClient.shutdown()
-            throw error
         }
-        try await httpClient.shutdown()
     }
 }

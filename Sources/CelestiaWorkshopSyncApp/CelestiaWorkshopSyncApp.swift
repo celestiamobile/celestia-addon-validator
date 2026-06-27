@@ -1,5 +1,4 @@
 import ArgumentParser
-import AsyncHTTPClient
 import CelestiaAddonValidator
 import Foundation
 import OpenCloudKit
@@ -61,22 +60,17 @@ struct CelestiaWorkshopSyncApp: AsyncParsableCommand {
         }
         CloudKit.shared.configure(with: CKConfig(containers: [config]))
 
-        let httpClient = HTTPClient(eventLoopGroupProvider: .singleton, configuration: .init(connectionPool: .init(idleTimeout: .seconds(60))))
-        let coordinator = SyncCoordinator(
-            stateDir: URL(fileURLWithPath: stateDir),
-            steamcmdPath: URL(fileURLWithPath: steamcmdPath),
-            appID: appID,
-            steamUsername: steamUsername,
-            dryRun: dryRun,
-            httpClient: httpClient,
-            limit: limit
-        )
-        do {
+        try await withHTTPClient { httpClient in
+            let coordinator = SyncCoordinator(
+                stateDir: URL(fileURLWithPath: stateDir),
+                steamcmdPath: URL(fileURLWithPath: steamcmdPath),
+                appID: appID,
+                steamUsername: steamUsername,
+                dryRun: dryRun,
+                httpClient: httpClient,
+                limit: limit
+            )
             try await coordinator.run()
-        } catch {
-            try await httpClient.shutdown()
-            throw error
         }
-        try await httpClient.shutdown()
     }
 }
