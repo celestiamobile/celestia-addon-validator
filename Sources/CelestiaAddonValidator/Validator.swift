@@ -26,6 +26,7 @@ public enum ValidatorError: Error {
     case invalidText(fieldName: String)
     case invalidDate(text: String, fieldName: String)
     case invalidInt(text: String, fieldName: String)
+    case coverImageTooLarge(byteCount: Int, maxByteCount: Int)
 }
 
 extension ValidatorError: LocalizedError {
@@ -73,12 +74,27 @@ extension ValidatorError: LocalizedError {
             return "Invalid date in \(fieldName): \(text)"
         case let .invalidInt(text, fieldName):
             return "Invalid integer value in \(fieldName): \(text)"
+        case let .coverImageTooLarge(byteCount, maxByteCount):
+            return "Cover image is \(byteCount) bytes, exceeding the Steam Workshop preview image limit of \(maxByteCount) bytes"
         }
     }
 }
 
 public final class Validator {
+    /// Steam Workshop rejects preview images larger than 1 MiB with a
+    /// `k_EResultLimitExceeded` ("Limit exceeded") error during upload, so we
+    /// reject oversized cover images up front instead of letting the daily
+    /// sync fail repeatedly.
+    public static let maxCoverImageByteCount = 1024 * 1024
+
     public init() {}
+
+    private func validateCoverImageSize(_ url: URL) throws {
+        let byteCount = (try? url.resourceValues(forKeys: [.fileSizeKey]).fileSize) ?? 0
+        if byteCount > Self.maxCoverImageByteCount {
+            throw ValidatorError.coverImageTooLarge(byteCount: byteCount, maxByteCount: Self.maxCoverImageByteCount)
+        }
+    }
 
     public static func configure(_ config: CKContainerConfig) {
         CloudKit.shared.configure(with: CKConfig(containers: [config]))
@@ -159,6 +175,9 @@ public final class Validator {
 
         let potentialCoverImagePath = (path as NSString).appendingPathComponent("cover_image.jpg")
         let coverImageURL = fm.fileExists(atPath: potentialCoverImagePath) ? URL(fileURLWithPath: potentialCoverImagePath) : nil
+        if let coverImageURL {
+            try validateCoverImageSize(coverImageURL)
+        }
 
         let modifyingExistingAddon: Bool
         if let idRequirement {
@@ -548,6 +567,9 @@ public final class Validator {
         let type = record["type"] as? String
         let mainScriptName = record["main_script_name"] as? String
         let coverImageURL = (record["cover_image"] as? CKAsset)?.fileURL
+        if let coverImageURL {
+            try validateCoverImageSize(coverImageURL)
+        }
         let rank = record["rank"] as? Int
 
         let dependencies = record["dependencies"] as? [String]
