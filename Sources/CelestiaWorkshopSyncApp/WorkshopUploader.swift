@@ -123,13 +123,28 @@ struct WorkshopUploader {
         return lines.joined(separator: "\n") + "\n"
     }
 
-    /// VDF strings are double-quoted; the only characters needing escaping
-    /// are backslash and double-quote.
+    /// Wraps a value as a VDF (Valve KeyValues) double-quoted string.
+    ///
+    /// steamcmd's `workshop_build_item` parses `workshopitem.vdf` with escape
+    /// sequences DISABLED, so a backslash-escaped quote (`\"`) is read as a
+    /// literal backslash followed by a string-terminating quote — which
+    /// desyncs the parser and makes it fail with `got } in key`. Because a
+    /// raw `"` therefore cannot appear inside a value at all, we substitute
+    /// typographic quotation marks (paired “ ”) instead of trying to escape.
+    /// Other characters — including raw newlines and backslashes — are passed
+    /// through unchanged, which the no-escape parser accepts.
     private func quoted(_ s: String) -> String {
-        let escaped = s
-            .replacingOccurrences(of: "\\", with: "\\\\")
-            .replacingOccurrences(of: "\"", with: "\\\"")
-        return "\"\(escaped)\""
+        var result = ""
+        var openNext = true
+        for character in s {
+            if character == "\"" {
+                result.append(openNext ? "\u{201C}" : "\u{201D}")
+                openNext.toggle()
+            } else {
+                result.append(character)
+            }
+        }
+        return "\"\(result)\""
     }
 }
 
