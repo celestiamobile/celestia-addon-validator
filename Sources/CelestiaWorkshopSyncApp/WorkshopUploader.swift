@@ -1,3 +1,4 @@
+import AsyncRequest
 import Foundation
 
 /// Top-level "per addon" upload orchestrator. Handles content staging,
@@ -6,6 +7,7 @@ import Foundation
 struct WorkshopUploader {
     let appID: String
     let steamcmd: SteamCmdRunner
+    let httpClient: any RequestClient
 
     /// Uploads/updates/hides/unhides one addon based on `action` and
     /// returns the AddonState to persist. Throws on any failure — the
@@ -24,7 +26,7 @@ struct WorkshopUploader {
         let title = addon.name
         let description = makeWorkshopDescription(addon: addon)
 
-        let staged = try await ContentStaging.stage(addon: addon, addonType: addonType)
+        let staged = try await ContentStaging.stage(addon: addon, addonType: addonType, httpClient: httpClient)
         defer { try? FileManager.default.removeItem(at: staged.rootDir) }
 
         let vdfPath = staged.rootDir.appendingPathComponent("workshopitem.vdf")

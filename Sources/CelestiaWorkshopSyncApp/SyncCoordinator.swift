@@ -1,3 +1,4 @@
+import AsyncRequest
 import CelestiaAddonValidator
 import CloudKitCodable
 import Foundation
@@ -13,6 +14,7 @@ struct SyncCoordinator {
     let appID: String
     let steamUsername: String
     let dryRun: Bool
+    let httpClient: any RequestClient
     /// 0 = unlimited. Otherwise cap actual uploads this run; useful for
     /// staging the first bulk sync without committing to 2000+ hits.
     let limit: Int
@@ -43,7 +45,8 @@ struct SyncCoordinator {
 
         let uploader = WorkshopUploader(
             appID: appID,
-            steamcmd: SteamCmdRunner(steamcmdPath: steamcmdPath, username: steamUsername)
+            steamcmd: SteamCmdRunner(steamcmdPath: steamcmdPath, username: steamUsername),
+            httpClient: httpClient
         )
 
         let decoder = CloudKitRecordDecoder()

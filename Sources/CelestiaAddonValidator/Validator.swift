@@ -1,3 +1,4 @@
+import AsyncRequest
 import Foundation
 import ImageIO
 import OpenCloudKit
@@ -87,10 +88,14 @@ public final class Validator {
     /// sync fail repeatedly.
     public static let maxCoverImageByteCount = 1024 * 1024
 
-    public init() {}
+    private let httpClient: any RequestClient
+
+    public init(httpClient: any RequestClient) {
+        self.httpClient = httpClient
+    }
 
     private func validateCoverImageSize(_ url: URL) async throws {
-        guard let localURL = try await Downloader.download(url) else {
+        guard let localURL = try await Downloader.download(url, httpClient: httpClient) else {
             throw ValidatorError.network
         }
         let byteCount = (try? localURL.resourceValues(forKeys: [.fileSizeKey]).fileSize) ?? 0
@@ -388,7 +393,7 @@ public final class Validator {
             if url.isFileURL {
                 addonURL = url
             } else {
-                guard let downloadedURL = try await Downloader.download(url) else {
+                guard let downloadedURL = try await Downloader.download(url, httpClient: httpClient) else {
                     throw ValidatorError.network
                 }
                 addonURL = downloadedURL
@@ -413,7 +418,7 @@ public final class Validator {
                 guard let addon = record["item"] as? CKAsset else {
                     throw ValidatorError.incorrectRecordFieldType
                 }
-                guard let url = try await Downloader.download(addon.fileURL) else {
+                guard let url = try await Downloader.download(addon.fileURL, httpClient: httpClient) else {
                     throw ValidatorError.network
                 }
                 addonURL = url

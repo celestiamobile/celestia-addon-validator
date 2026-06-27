@@ -1,4 +1,5 @@
 import AppKit
+import AsyncRequest
 import Foundation
 import OpenCloudKit
 
@@ -34,7 +35,11 @@ extension UploaderError: LocalizedError {
 }
 
 public final class Uploader {
-    public init() {}
+    private let httpClient: any RequestClient
+
+    public init(httpClient: any RequestClient) {
+        self.httpClient = httpClient
+    }
 
     @discardableResult private func submitRecord(_ record: CKRecord, savePolicy: CKModifyRecordsOperation.RecordSavePolicy, to database: CKDatabase) async throws -> CKRecord {
         let modifyResults = try await database.modifyRecords(saving: [record], deleting: [], savePolicy: savePolicy).saveResults
@@ -84,7 +89,7 @@ public final class Uploader {
         }
         let record = CKRecord(recordType: "ResourceItem", recordID: CKRecord.ID(recordName: id))
         print("Downloading cover image")
-        guard let localCoverImageURL = try await Downloader.download(item.coverImage) else {
+        guard let localCoverImageURL = try await Downloader.download(item.coverImage, httpClient: httpClient) else {
             throw UploaderError.download
         }
         guard let coverImage = NSImage(contentsOf: localCoverImageURL) else {
@@ -98,7 +103,7 @@ public final class Uploader {
             throw UploaderError.saveResizedImage
         }
         print("Downloading addon")
-        guard let localAddonURL = try await Downloader.download(item.addon) else {
+        guard let localAddonURL = try await Downloader.download(item.addon, httpClient: httpClient) else {
             throw UploaderError.download
         }
 
@@ -139,7 +144,7 @@ public final class Uploader {
         let urls: (localCoverImageURL: URL, localThumbnailImageURL: URL)?
         if let coverImage = item.coverImage {
             print("Downloading cover image")
-            guard let localCoverImageURL = try await Downloader.download(coverImage) else {
+            guard let localCoverImageURL = try await Downloader.download(coverImage, httpClient: httpClient) else {
                 throw UploaderError.download
             }
             guard let coverImage = NSImage(contentsOf: localCoverImageURL) else {
@@ -160,7 +165,7 @@ public final class Uploader {
         let localAddonURL: URL?
         if let addon = item.addon {
             print("Downloading addon")
-            guard let url = try await Downloader.download(addon) else {
+            guard let url = try await Downloader.download(addon, httpClient: httpClient) else {
                 throw UploaderError.download
             }
             localAddonURL = url
@@ -219,7 +224,7 @@ public final class Uploader {
 
     private func uploadRichDescription(_ richDescription: RichDescription, to database: CKDatabase) async throws -> CKRecord.ID {
         print("Downloading rich description assets")
-        guard let localCoverImageURL = try await Downloader.download(richDescription.coverImage.imageURL) else {
+        guard let localCoverImageURL = try await Downloader.download(richDescription.coverImage.imageURL, httpClient: httpClient) else {
             throw UploaderError.download
         }
         if NSImage(contentsOf: localCoverImageURL) == nil {
@@ -228,7 +233,7 @@ public final class Uploader {
         var imageAssets = [CKAsset(fileURL: localCoverImageURL)]
         if let otherImages = richDescription.detailImages {
             for otherImage in otherImages {
-                guard let localOtherImageURL = try await Downloader.download(otherImage.imageURL) else {
+                guard let localOtherImageURL = try await Downloader.download(otherImage.imageURL, httpClient: httpClient) else {
                     throw UploaderError.download
                 }
                 if NSImage(contentsOf: localOtherImageURL) == nil {

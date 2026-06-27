@@ -1,4 +1,5 @@
 import ArgumentParser
+import AsyncHTTPClient
 import CelestiaAddonValidator
 import Foundation
 import OpenCloudKit
@@ -54,20 +55,27 @@ struct CelestiaAddonValidatorApp: AsyncParsableCommand {
         }
 
         Validator.configure(config)
-        let validator = Validator()
-        let change: ItemOperation
-        if let recordID {
-            change = try await validator.validate(recordID: CKRecord.ID(recordName: recordID))
-        } else if let zipFilePath {
-            change = try await validator.validate(zipFilePath: zipFilePath)
-        } else {
-            throw ArgumentError.noItem
-        }
-        print("Summary:\n\(change.summary)")
+        let httpClient = HTTPClient(eventLoopGroupProvider: .singleton, configuration: .init(connectionPool: .init(idleTimeout: .seconds(60))))
+        do {
+            let validator = Validator(httpClient: httpClient)
+            let change: ItemOperation
+            if let recordID {
+                change = try await validator.validate(recordID: CKRecord.ID(recordName: recordID))
+            } else if let zipFilePath {
+                change = try await validator.validate(zipFilePath: zipFilePath)
+            } else {
+                throw ArgumentError.noItem
+            }
+            print("Summary:\n\(change.summary)")
 
-        if upload {
-            let uploader = Uploader()
-            try await uploader.upload(change)
+            if upload {
+                let uploader = Uploader(httpClient: httpClient)
+                try await uploader.upload(change)
+            }
+        } catch {
+            try await httpClient.shutdown()
+            throw error
         }
+        try await httpClient.shutdown()
     }
 }

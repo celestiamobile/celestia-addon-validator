@@ -1,6 +1,6 @@
+import AsyncRequest
 import CloudKitCodable
 import Foundation
-import MWRequest
 import ZIPFoundation
 
 /// Builds the Workshop content folder layout the Celestia Steam client
@@ -26,7 +26,8 @@ struct ContentStaging {
     /// CloudKit and lays them out under a fresh temp dir.
     static func stage(
         addon: WorkshopAddonRecord,
-        addonType: AddonType
+        addonType: AddonType,
+        httpClient: any RequestClient
     ) async throws -> Staged {
         let rootDir = try makeTempDir(prefix: "celestia-workshop-staging-")
         let contentFolder = rootDir.appendingPathComponent("content", isDirectory: true)
@@ -46,7 +47,7 @@ struct ContentStaging {
         // 2. Download the content zip and unzip it into the UUID subdir.
         let uuidDir = contentFolder.appendingPathComponent(addon.cloudKitIdentifier, isDirectory: true)
         try FileManager.default.createDirectory(at: uuidDir, withIntermediateDirectories: true)
-        let zipData = try await downloadAssetData(addon.item)
+        let zipData = try await downloadAssetData(addon.item, httpClient: httpClient)
         let zipPath = rootDir.appendingPathComponent("item.zip")
         try zipData.write(to: zipPath)
         try FileManager.default.unzipItem(at: zipPath, to: uuidDir)
@@ -58,7 +59,7 @@ struct ContentStaging {
         //    blindly use ".jpg".
         var previewFile: URL?
         if let image = addon.image {
-            let previewData = try await downloadAssetData(image)
+            let previewData = try await downloadAssetData(image, httpClient: httpClient)
             let ext = imageExtension(forBytes: previewData)
             let preview = rootDir.appendingPathComponent("preview.\(ext)")
             try previewData.write(to: preview)
@@ -72,10 +73,10 @@ struct ContentStaging {
         )
     }
 
-    private static func downloadAssetData(_ info: CKAssetDownloadInfo) async throws -> Data {
+    private static func downloadAssetData(_ info: CKAssetDownloadInfo, httpClient: any RequestClient) async throws -> Data {
         // OpenCloudKit's CKAssetDownloadInfo.url is a plain HTTPS URL on
         // Steam's CDN side, no extra auth needed beyond the URL itself.
-        return try await AsyncDataRequestHandler.get(url: info.url.absoluteString)
+        return try await AsyncDataRequestHandler.get(url: info.url.absoluteString, httpClient: httpClient)
     }
 
     /// Sniff the file format from the first few bytes and return the
