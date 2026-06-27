@@ -89,8 +89,11 @@ public final class Validator {
 
     public init() {}
 
-    private func validateCoverImageSize(_ url: URL) throws {
-        let byteCount = (try? url.resourceValues(forKeys: [.fileSizeKey]).fileSize) ?? 0
+    private func validateCoverImageSize(_ url: URL) async throws {
+        guard let localURL = try await Downloader.download(url) else {
+            throw ValidatorError.network
+        }
+        let byteCount = (try? localURL.resourceValues(forKeys: [.fileSizeKey]).fileSize) ?? 0
         if byteCount > Self.maxCoverImageByteCount {
             throw ValidatorError.coverImageTooLarge(byteCount: byteCount, maxByteCount: Self.maxCoverImageByteCount)
         }
@@ -176,7 +179,7 @@ public final class Validator {
         let potentialCoverImagePath = (path as NSString).appendingPathComponent("cover_image.jpg")
         let coverImageURL = fm.fileExists(atPath: potentialCoverImagePath) ? URL(fileURLWithPath: potentialCoverImagePath) : nil
         if let coverImageURL {
-            try validateCoverImageSize(coverImageURL)
+            try await validateCoverImageSize(coverImageURL)
         }
 
         let modifyingExistingAddon: Bool
@@ -568,7 +571,7 @@ public final class Validator {
         let mainScriptName = record["main_script_name"] as? String
         let coverImageURL = (record["cover_image"] as? CKAsset)?.fileURL
         if let coverImageURL {
-            try validateCoverImageSize(coverImageURL)
+            try await validateCoverImageSize(coverImageURL)
         }
         let rank = record["rank"] as? Int
 
