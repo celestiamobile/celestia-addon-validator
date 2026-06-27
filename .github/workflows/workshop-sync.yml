@@ -29,8 +29,6 @@ jobs:
     steps:
     - name: Checkout
       uses: actions/checkout@v4
-      with:
-        ref: workshop-sync
 
     - name: Checkout state repo
       uses: actions/checkout@v4
