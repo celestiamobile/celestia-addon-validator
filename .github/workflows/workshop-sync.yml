@@ -22,7 +22,7 @@ concurrency:
 jobs:
   sync:
     name: "Sync add-ons to Steam Workshop"
-    runs-on: macos-15
+    runs-on: macos-26
     permissions:
       contents: read
 
