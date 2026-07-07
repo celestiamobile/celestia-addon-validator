@@ -34,6 +34,8 @@ If the pull request is not created, there might be an issue with with your fork 
 
 Go to your fork of this repository in https://github.com/YOUR_GITHUB_USERNAME/celestia-addon-validator.git \(replace YOUR_GITHUB_USERNAME with your GitHub user name\) and navigate to Settings. Find "Delete this repository" down the page and follow the instructions.
 
+If the error persists, right click on the web page, choose "Inspect" or "Inspect Element" to open the browser's dev tools, navigate to "Console" tab. Re-submit your add-on and see what the error is in "Console" tab. Report the error by creating an issue.
+
 ## Check Validation Result
 
 Validation should only take a few minutes.
