@@ -58,6 +58,17 @@ jobs:
           .build/debug/CelestiaAddonValidatorApp --api-token 377f2dcc6bf5c3a841914799d07a4b3e6f82a6e2a30b41697e246933eef06370 --zip-file-path $file
         done 2>&1 | tee /tmp/validate_zip.txt
 
+    - name: Validate (Remote Zip)
+      if: github.event_name == 'pull_request' && always()
+      run: |
+        set -o pipefail
+        for file in `git diff --name-only --diff-filter=A origin/$GITHUB_BASE_REF`; do
+          if [[ "$file" != pending_zip_url/* ]]; then
+            continue
+          fi
+          .build/debug/CelestiaAddonValidatorApp --api-token 377f2dcc6bf5c3a841914799d07a4b3e6f82a6e2a30b41697e246933eef06370 --zip-file-url "$(cat "$file")"
+        done 2>&1 | tee /tmp/validate_zip_url.txt
+
     # - name: Post Validation Results
     #   if: github.event_name == 'pull_request' && always()
     #   uses: actions/github-script@v7
@@ -101,6 +112,19 @@ jobs:
             continue
           fi
           .build/debug/CelestiaAddonValidatorApp --upload --key-file-path $RUNNER_TEMP/key.pem --key-id $CLOUDKIT_KEY_ID --zip-file-path $file
+          git rm $file
+        done
+
+    - name: Upload (Remote Zip)
+      if: github.event_name != 'pull_request' && always()
+      env:
+        CLOUDKIT_KEY_ID: ${{ secrets.CLOUDKIT_KEY_ID }}
+      run: |
+        for file in `git diff --name-only --diff-filter=A HEAD^`; do
+          if [[ "$file" != pending_zip_url/* ]]; then
+            continue
+          fi
+          .build/debug/CelestiaAddonValidatorApp --upload --key-file-path $RUNNER_TEMP/key.pem --key-id $CLOUDKIT_KEY_ID --zip-file-url "$(cat "$file")"
           git rm $file
         done
 

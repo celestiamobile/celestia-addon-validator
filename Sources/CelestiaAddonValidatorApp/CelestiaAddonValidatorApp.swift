@@ -42,6 +42,9 @@ struct CelestiaAddonValidatorApp: AsyncParsableCommand {
     @Option(help: "The zip file to validate or update from.")
     var zipFilePath: String?
 
+    @Option(help: "The URL of the zip file to download, validate or update from.")
+    var zipFileURL: String?
+
     mutating func run() async throws {
         let config: CKContainerConfig
         if let keyID, let keyFilePath {
@@ -61,6 +64,11 @@ struct CelestiaAddonValidatorApp: AsyncParsableCommand {
                 change = try await validator.validate(recordID: CKRecord.ID(recordName: recordID))
             } else if let zipFilePath {
                 change = try await validator.validate(zipFilePath: zipFilePath)
+            } else if let zipFileURL {
+                guard let url = URL(string: zipFileURL) else {
+                    throw ValidatorError.invalidDownloadURL(url: zipFileURL)
+                }
+                change = try await validator.validate(zipFileURL: url)
             } else {
                 throw ArgumentError.noItem
             }

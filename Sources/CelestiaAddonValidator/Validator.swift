@@ -28,6 +28,7 @@ public enum ValidatorError: Error {
     case invalidDate(text: String, fieldName: String)
     case invalidInt(text: String, fieldName: String)
     case coverImageTooLarge(byteCount: Int, maxByteCount: Int)
+    case invalidDownloadURL(url: String)
 }
 
 extension ValidatorError: LocalizedError {
@@ -77,6 +78,8 @@ extension ValidatorError: LocalizedError {
             return "Invalid integer value in \(fieldName): \(text)"
         case let .coverImageTooLarge(byteCount, maxByteCount):
             return "Cover image is \(byteCount) bytes, exceeding the Steam Workshop preview image limit of \(maxByteCount) bytes"
+        case let .invalidDownloadURL(url):
+            return "Invalid download URL: \(url)"
         }
     }
 }
@@ -120,6 +123,21 @@ public final class Validator {
         case .failure(let error):
             throw error
         }
+    }
+
+    /// The add-on submission zip is uploaded to this Azure Blob Storage account
+    /// by the submit-addon page, so downloads are restricted to this host to keep
+    /// a pull request from pointing the validator at an arbitrary URL.
+    public static let allowedZipDownloadHost = "celestiaaddons.blob.core.windows.net"
+
+    public func validate(zipFileURL: URL) async throws -> ItemOperation {
+        guard zipFileURL.scheme == "https", zipFileURL.host == Self.allowedZipDownloadHost else {
+            throw ValidatorError.invalidDownloadURL(url: zipFileURL.absoluteString)
+        }
+        guard let localURL = try await Downloader.download(zipFileURL, httpClient: httpClient) else {
+            throw ValidatorError.network
+        }
+        return try await validate(zipFilePath: localURL.path)
     }
 
     public func validate(zipFilePath: String) async throws -> ItemOperation {
