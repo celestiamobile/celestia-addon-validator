@@ -8,8 +8,6 @@ Check [Make an Add-on](https://celestia.mobi/make-addon) before submitting your 
 
 Go to the [Update Addon](https://celestia.mobi/submit-addon) page and login with your GitHub account.
 
-If you are uploading an add-on that exceeds 50MB, you also need to login with an Apple ID.
-
 ## Fill in Information
 
 Fill in the information about this add-on you are adding, changing, or removing.
