@@ -60,13 +60,15 @@ jobs:
 
     - name: Validate (Remote Zip)
       if: github.event_name == 'pull_request' && always()
+      env:
+        AZURE_STORAGE_KEY: ${{ secrets.AZURE_STORAGE_KEY }}
       run: |
         set -o pipefail
         for file in `git diff --name-only --diff-filter=A origin/$GITHUB_BASE_REF`; do
-          if [[ "$file" != pending_zip_url/* ]]; then
+          if [[ "$file" != pending_zip_blob/* ]]; then
             continue
           fi
-          .build/debug/CelestiaAddonValidatorApp --api-token 377f2dcc6bf5c3a841914799d07a4b3e6f82a6e2a30b41697e246933eef06370 --zip-file-url "$(cat "$file")"
+          .build/debug/CelestiaAddonValidatorApp --api-token 377f2dcc6bf5c3a841914799d07a4b3e6f82a6e2a30b41697e246933eef06370 --zip-blob-name "$(cat "$file")"
         done 2>&1 | tee /tmp/validate_zip_url.txt
 
     # - name: Post Validation Results
@@ -119,12 +121,13 @@ jobs:
       if: github.event_name != 'pull_request' && always()
       env:
         CLOUDKIT_KEY_ID: ${{ secrets.CLOUDKIT_KEY_ID }}
+        AZURE_STORAGE_KEY: ${{ secrets.AZURE_STORAGE_KEY }}
       run: |
         for file in `git diff --name-only --diff-filter=A HEAD^`; do
-          if [[ "$file" != pending_zip_url/* ]]; then
+          if [[ "$file" != pending_zip_blob/* ]]; then
             continue
           fi
-          .build/debug/CelestiaAddonValidatorApp --upload --key-file-path $RUNNER_TEMP/key.pem --key-id $CLOUDKIT_KEY_ID --zip-file-url "$(cat "$file")"
+          .build/debug/CelestiaAddonValidatorApp --upload --key-file-path $RUNNER_TEMP/key.pem --key-id $CLOUDKIT_KEY_ID --zip-blob-name "$(cat "$file")"
           git rm $file
         done
 

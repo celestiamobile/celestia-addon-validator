@@ -6,6 +6,7 @@ import OpenCloudKit
 enum ArgumentError: Error {
     case noAuth
     case noItem
+    case noAzureStorageKey
 }
 
 extension ArgumentError: LocalizedError {
@@ -15,6 +16,8 @@ extension ArgumentError: LocalizedError {
             return "No authentication method is provided"
         case .noItem:
             return "No item is provided for validation"
+        case .noAzureStorageKey:
+            return "AZURE_STORAGE_KEY environment variable is required to mint a download SAS for the zip blob"
         }
     }
 }
@@ -45,6 +48,9 @@ struct CelestiaAddonValidatorApp: AsyncParsableCommand {
     @Option(help: "The URL of the zip file to download, validate or update from.")
     var zipFileURL: String?
 
+    @Option(help: "The Azure Blob name of the zip file. A read SAS is minted from AZURE_STORAGE_KEY to download, validate or update from.")
+    var zipBlobName: String?
+
     mutating func run() async throws {
         let config: CKContainerConfig
         if let keyID, let keyFilePath {
@@ -69,6 +75,11 @@ struct CelestiaAddonValidatorApp: AsyncParsableCommand {
                     throw ValidatorError.invalidDownloadURL(url: zipFileURL)
                 }
                 change = try await validator.validate(zipFileURL: url)
+            } else if let zipBlobName {
+                guard let accountKey = ProcessInfo.processInfo.environment["AZURE_STORAGE_KEY"], !accountKey.isEmpty else {
+                    throw ArgumentError.noAzureStorageKey
+                }
+                change = try await validator.validate(zipBlobName: zipBlobName, accountKey: accountKey)
             } else {
                 throw ArgumentError.noItem
             }

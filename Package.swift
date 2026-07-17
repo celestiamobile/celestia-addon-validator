@@ -12,6 +12,7 @@ let package = Package(
         .package(url: "https://github.com/levinli303/async-request.git", from: "1.1.2", traits: ["AsyncHTTPClient"]),
         .package(url: "https://github.com/apple/swift-argument-parser", from: "1.2.0"),
         .package(url: "https://github.com/weichsel/ZIPFoundation.git", from: "0.9.0"),
+        .package(url: "https://github.com/apple/swift-crypto.git", "1.0.0"..<"5.0.0"),
     ],
     targets: [
         .target(
@@ -23,6 +24,7 @@ let package = Package(
                 .product(name: "OpenCloudKit", package: "OpenCloudKit"),
                 .product(name: "AsyncRequest", package: "async-request"),
                 .product(name: "ZIPFoundation", package: "ZIPFoundation"),
+                .product(name: "Crypto", package: "swift-crypto"),
                 .target(name: "CelestiaCatalogParser"),
             ]
         ),
