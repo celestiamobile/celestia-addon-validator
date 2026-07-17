@@ -140,26 +140,6 @@ public final class Validator {
         return try await validate(zipFilePath: localURL.path)
     }
 
-    /// Read SAS validity for a CI download. Kept short since it is minted at the
-    /// moment of validation/upload rather than committed to the repository.
-    private static let zipBlobDownloadValidity: TimeInterval = 60 * 60
-
-    /// Mints a short-lived read SAS for `zipBlobName` from the Azure storage
-    /// account key, then validates the downloaded zip. The pull request records
-    /// only the blob name so no download credential is exposed publicly.
-    public func validate(zipBlobName: String, accountKey: String) async throws -> ItemOperation {
-        let urlString = try AzureBlobSAS.readURL(
-            blobName: zipBlobName,
-            accountKey: accountKey,
-            expiry: Date().addingTimeInterval(Self.zipBlobDownloadValidity)
-        )
-        guard let url = URL(string: urlString) else {
-            throw ValidatorError.invalidDownloadURL(url: urlString)
-        }
-        return try await validate(zipFileURL: url)
-    }
-
-
     public func validate(zipFilePath: String) async throws -> ItemOperation {
         let temporaryDirectoryPath = (NSTemporaryDirectory() as NSString).appendingPathComponent(UUID().uuidString)
         let fm = FileManager.default
