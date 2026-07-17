@@ -125,10 +125,11 @@ public final class Validator {
         }
     }
 
-    /// The add-on submission zip is uploaded to this Azure Blob Storage account
-    /// by the submit-addon page, so downloads are restricted to this host to keep
-    /// a pull request from pointing the validator at an arbitrary URL.
-    public static let allowedZipDownloadHost = "celestiaaddons.blob.core.windows.net"
+    /// The add-on submission zip is downloaded through this celestia.mobi endpoint,
+    /// which redirects to a short-lived read SAS minted server-side. Downloads are
+    /// restricted to this host so a pull request cannot point the validator at an
+    /// arbitrary URL.
+    public static let allowedZipDownloadHost = "celestia.mobi"
 
     public func validate(zipFileURL: URL) async throws -> ItemOperation {
         guard zipFileURL.scheme == "https", zipFileURL.host == Self.allowedZipDownloadHost else {
