@@ -1,1 +1,0 @@
-https://celestia.mobi/api/2/helpers/submit-addon-download?blobName=B36CD6AB-7210-49FA-B437-CE2303EEB50F%2Faddon.zip
