@@ -7,6 +7,8 @@ public struct CreateItem {
     let idRequirement: String?
     let authors: [String]
     let description: String
+    let originalPublishTime: Date?
+    let originalURL: URL?
     let demoObjectName: String?
     let coverImage: URL
     let addon: URL

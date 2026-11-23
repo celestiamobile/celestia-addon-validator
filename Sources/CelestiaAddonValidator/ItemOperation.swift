@@ -28,6 +28,12 @@ public extension ItemOperation {
             if let authors = item.authors {
                 texts.append("Authors: \(authors.joined(separator: ", "))")
             }
+            if let originalPublishTime = item.originalPublishTime {
+                texts.append("Original Publish Time: \(originalPublishTime)")
+            }
+            if let originalURL = item.originalURL {
+                texts.append("Original URL: \(originalURL.absoluteString)")
+            }
             if let demoObjectName = item.demoObjectName {
                 texts.append("Demo Object Name: \(demoObjectName)")
             }
@@ -66,6 +72,12 @@ public extension ItemOperation {
             texts.append("Descrpition: \(item.description)")
             texts.append("Category: \(item.category.recordID.recordName)")
             texts.append("Authors: \(item.authors.joined(separator: ", "))")
+            if let originalPublishTime = item.originalPublishTime {
+                texts.append("Original Publish Time: \(originalPublishTime)")
+            }
+            if let originalURL = item.originalURL {
+                texts.append("Original URL: \(originalURL.absoluteString)")
+            }
             if let demoObjectName = item.demoObjectName {
                 texts.append("Demo Object Name: \(demoObjectName)")
             }

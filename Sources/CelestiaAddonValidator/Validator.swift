@@ -26,6 +26,7 @@ public enum ValidatorError: Error {
     case invalidTexture(path: String)
     case invalidText(fieldName: String)
     case invalidDate(text: String, fieldName: String)
+    case invalidURL(text: String, fieldName: String)
     case invalidInt(text: String, fieldName: String)
     case coverImageTooLarge(byteCount: Int, maxByteCount: Int)
     case invalidDownloadURL(url: String)
@@ -74,6 +75,8 @@ extension ValidatorError: LocalizedError {
             return "Invalid text in \(fieldName)"
         case let .invalidDate(text, fieldName):
             return "Invalid date in \(fieldName): \(text)"
+        case let .invalidURL(text, fieldName):
+            return "Invalid HTTP or HTTPS URL in \(fieldName): \(text)"
         case let .invalidInt(text, fieldName):
             return "Invalid integer value in \(fieldName): \(text)"
         case let .coverImageTooLarge(byteCount, maxByteCount):
@@ -195,6 +198,8 @@ public final class Validator {
         let mainScriptName = try readString(directoryPath: path, filename: "main_script_name.txt")
         let title = try readString(directoryPath: path, filename: "title.txt")
         let description = try readString(directoryPath: path, filename: "description.txt")
+        let originalPublishTime = try readDate(directoryPath: path, filename: "original_publish_time.txt")
+        let originalURL = try parseOriginalURL(readString(directoryPath: path, filename: "original_url.txt"), fieldName: "original_url.txt")
         let rank = try readInt(directoryPath: path, filename: "rank.txt")
         let potentialAddonPath = (path as NSString).appendingPathComponent("addon.zip")
         let fm = FileManager.default
@@ -298,6 +303,8 @@ public final class Validator {
                     idRequirement: idRequirement,
                     authors: authors,
                     description: description,
+                    originalPublishTime: originalPublishTime,
+                    originalURL: originalURL,
                     demoObjectName: demoObjectName,
                     coverImage: coverImageURL,
                     addon: addonURL,
@@ -343,6 +350,8 @@ public final class Validator {
                 id: CKRecord.ID(recordName: idRequirement),
                 authors: authors,
                 description: description,
+                originalPublishTime: originalPublishTime,
+                originalURL: originalURL,
                 demoObjectName: demoObjectName,
                 coverImage: coverImageURL,
                 addon: addonURL,
@@ -587,6 +596,13 @@ public final class Validator {
         print("Parsing main contents...")
         let title = record["title"] as? String
         let description = record["description"] as? String
+        let originalPublishTime = record["original_publish_time"] as? Date
+        let originalURLText = record["original_url"] as? String
+        guard record["original_publish_time"] == nil || originalPublishTime != nil,
+              record["original_url"] == nil || originalURLText != nil else {
+            throw ValidatorError.incorrectRecordFieldType
+        }
+        let originalURL = try parseOriginalURL(originalURLText, fieldName: "original_url")
         let category = record["category"] as? CKRecord.Reference
         let authors = record["authors"] as? [String]
         let addonURL = (record["addon"] as? CKAsset)?.fileURL
@@ -640,6 +656,8 @@ public final class Validator {
                     idRequirement: idRequirement,
                     authors: authors,
                     description: description,
+                    originalPublishTime: originalPublishTime,
+                    originalURL: originalURL,
                     demoObjectName: demoObjectName,
                     coverImage: coverImageURL,
                     addon: addonURL,
@@ -680,6 +698,8 @@ public final class Validator {
                 id: CKRecord.ID(recordName: idRequirement),
                 authors: authors,
                 description: description,
+                originalPublishTime: originalPublishTime,
+                originalURL: originalURL,
                 demoObjectName: demoObjectName,
                 coverImage: coverImageURL,
                 addon: addonURL,
@@ -727,12 +747,29 @@ extension Validator {
             return nil
         }
         let dateFormatter = DateFormatter()
+        dateFormatter.locale = Locale(identifier: "en_US_POSIX")
+        dateFormatter.calendar = Calendar(identifier: .gregorian)
         dateFormatter.dateFormat = "yyyy/MM/dd HH:mm:ss"
         dateFormatter.timeZone = TimeZone(identifier: "GMT")
-        guard let date = dateFormatter.date(from: string) else {
+        dateFormatter.isLenient = false
+        guard let date = dateFormatter.date(from: string),
+              dateFormatter.string(from: date) == string else {
             throw ValidatorError.invalidDate(text: string, fieldName: filename)
         }
         return date
+    }
+
+    private func parseOriginalURL(_ text: String?, fieldName: String) throws -> URL? {
+        guard let text else {
+            return nil
+        }
+        guard let url = URL(string: text.trimmingCharacters(in: .whitespacesAndNewlines)),
+              let scheme = url.scheme?.lowercased(),
+              ["http", "https"].contains(scheme),
+              let host = url.host, !host.isEmpty else {
+            throw ValidatorError.invalidURL(text: text, fieldName: fieldName)
+        }
+        return url
     }
 
     private func readInt(directoryPath: String, filename: String) throws -> Int? {

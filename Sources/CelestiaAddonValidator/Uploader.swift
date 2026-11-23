@@ -119,6 +119,8 @@ public final class Uploader {
         record["authors"] = item.authors
         record["category"] = item.category
         record["publishTime"] = Date()
+        record["originalPublishTime"] = item.originalPublishTime
+        record["originalURL"] = item.originalURL?.absoluteString
         record["objectName"] = item.demoObjectName
         record["type"] = item.type
         record["mainScriptName"] = item.mainScriptName
@@ -185,6 +187,12 @@ public final class Uploader {
         }
         if let description = item.description {
             record["description"] = description
+        }
+        if let originalPublishTime = item.originalPublishTime {
+            record["originalPublishTime"] = originalPublishTime
+        }
+        if let originalURL = item.originalURL {
+            record["originalURL"] = originalURL.absoluteString
         }
         if let authors = item.authors {
             record["authors"] = authors
