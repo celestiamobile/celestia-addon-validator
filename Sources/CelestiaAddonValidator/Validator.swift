@@ -236,7 +236,9 @@ public final class Validator {
             if removeRichDescription {
                 throw ValidatorError.richDescriptionRemovalConflict
             }
-            let baseContent = try readString(directoryPath: richDescriptionDirectory, filename: "base.txt")!
+            guard let baseContent = try readString(directoryPath: richDescriptionDirectory, filename: "base.txt") else {
+                throw ValidatorError.missingFields(fieldName: "rich_description/base.txt")
+            }
             let noteType = try readString(directoryPath: richDescriptionDirectory, filename: "note_type.txt")
             let notes = try readStringList(directoryPath: richDescriptionDirectory, filename: "notes.txt")
             let richCoverImagePath = (richDescriptionDirectory as NSString).appendingPathComponent("cover_image.jpg")
