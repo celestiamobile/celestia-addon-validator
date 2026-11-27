@@ -57,6 +57,11 @@ struct SyncCoordinator {
                 continue
             }
             let addonId = addon.cloudKitIdentifier
+            guard addon.type != "hook" else {
+                summary.skippedCount += 1
+                print("[\(addonId)] hook add-ons are excluded from Workshop sync")
+                continue
+            }
             let priorState: AddonState?
             do {
                 priorState = try store.readAddonState(addonId: addonId)

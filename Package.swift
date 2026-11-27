@@ -55,6 +55,7 @@ let package = Package(
             name: "CelestiaAddonValidatorTests",
             dependencies: [
                 .target(name: "CelestiaAddonValidator"),
+                .target(name: "CelestiaWorkshopSyncApp"),
                 .product(name: "OpenCloudKit", package: "OpenCloudKit"),
                 .product(name: "ZIPFoundation", package: "ZIPFoundation"),
             ]

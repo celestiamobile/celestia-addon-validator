@@ -20,6 +20,9 @@ struct WorkshopUploader {
         previewChecksum: String?,
         fieldHashes: [String: String]
     ) async throws -> AddonState {
+        guard addon.type != "hook" else {
+            throw SyncError.unsupportedAddonType(value: "hook")
+        }
         let addonType: AddonType = (addon.type == "script") ? .script : .addon
         let visibility: Visibility = (action.steamVisibility == .hidden) ? .hidden : .public
         let changeNote = makeChangeNote(action: action)

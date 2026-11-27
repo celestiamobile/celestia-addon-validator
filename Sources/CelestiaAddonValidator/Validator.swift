@@ -14,11 +14,13 @@ public enum ValidatorError: Error {
     case emptyResult
     case fileManager
     case unzipping
+    case symbolicLink(path: String)
     case cloudKit(error: Error)
     case incorrectRecordFieldType
     case network
     case badDemoObject(supportedPaths: [String])
     case badType(type: String)
+    case invalidMainScriptName(name: String?)
     case changeTypeOfExisting
     case badRecordType(type: String)
     case nonPowerOfTwoTexture(path: String, width: Int, height: Int)
@@ -48,6 +50,8 @@ extension ValidatorError: LocalizedError {
             return "File manager error"
         case .unzipping:
             return "Error unzipping item"
+        case let .symbolicLink(path):
+            return "ZIP contains a symbolic link, which is not supported on Windows: \(path)"
         case .richDescriptionRemovalConflict:
             return "Rich description should be empty when remove_rich_description is on"
         case .richDescriptionRemovalOnCreate:
@@ -61,7 +65,9 @@ extension ValidatorError: LocalizedError {
         case let .badDemoObject(supportedPaths):
             return "Bad demo object name, should be one of \(supportedPaths) or their ancestors"
         case let .badType(type):
-            return "Type should be either script or addon, got \(type)"
+            return "Type should be addon, script, or hook, got \(type)"
+        case let .invalidMainScriptName(name):
+            return "Hook mainScriptName must be a nonempty, normalized relative path to a file with matching case inside the add-on, got \(name ?? "none")"
         case .changeTypeOfExisting:
             return "Cannot change type of an existing item"
         case let .badRecordType(type):
@@ -183,8 +189,10 @@ public final class Validator {
         } catch {
             throw ValidatorError.fileManager
         }
+        let zipURL = URL(fileURLWithPath: zipFilePath)
+        try Self.validateArchiveEntries(at: zipURL)
         do {
-            try fm.unzipItem(at: URL(fileURLWithPath: zipFilePath), to: URL(fileURLWithPath: temporaryDirectoryPath))
+            try fm.unzipItem(at: zipURL, to: URL(fileURLWithPath: temporaryDirectoryPath))
         } catch {
             throw ValidatorError.unzipping
         }
@@ -322,10 +330,11 @@ public final class Validator {
             guard let addonURL else {
                 throw ValidatorError.missingFields(fieldName: "addon.zip")
             }
-            guard let type, ["addon", "script"].contains(type) else {
+            guard let type, ["addon", "script", "hook"].contains(type) else {
                 throw ValidatorError.badType(type: type ?? "none")
             }
-            let (relatedObjectPaths, filteredObjectPaths) = try await validateAddonContents(location: .local(url: addonURL, targetId: nil))
+            let (relatedObjectPaths, filteredObjectPaths) = try await validateAddonContents(
+                location: .local(url: addonURL, targetId: nil), type: type, mainScriptName: mainScriptName)
             if let demoObjectName, !relatedObjectPaths.contains(where: { demoObjectName == $0 || $0.hasPrefix("\(demoObjectName)/") }) {
                 throw ValidatorError.badDemoObject(supportedPaths: relatedObjectPaths)
             }
@@ -369,9 +378,11 @@ public final class Validator {
         let relatedObjectPaths: [String]
         let filteredObjectPaths: [String]?
         if let addonURL {
-            (relatedObjectPaths, filteredObjectPaths) = try await validateAddonContents(location: .local(url: addonURL, targetId: idRequirement))
+            (relatedObjectPaths, filteredObjectPaths) = try await validateAddonContents(
+                location: .local(url: addonURL, targetId: idRequirement), mainScriptName: mainScriptName)
         } else {
-            (relatedObjectPaths, filteredObjectPaths) = try await validateAddonContents(location: .remote(id: idRequirement))
+            (relatedObjectPaths, filteredObjectPaths) = try await validateAddonContents(
+                location: .remote(id: idRequirement), mainScriptName: mainScriptName)
         }
         if let demoObjectName, !relatedObjectPaths.contains(where: { demoObjectName == $0 || $0.hasPrefix("\(demoObjectName)/") }) {
             throw ValidatorError.badDemoObject(supportedPaths: relatedObjectPaths)
@@ -425,18 +436,66 @@ public final class Validator {
         }
     }
 
-    private func validateAddonContents(location: AddonLocation) async throws -> (relatedObjectPaths: [String], filteredObjectPaths: [String]?) {
-        let db = CKContainer.default().publicCloudDatabase
+    private static func validateArchiveEntries(at url: URL) throws {
+        let archive: Archive
+        do {
+            archive = try Archive(url: url, accessMode: .read)
+        } catch {
+            throw ValidatorError.unzipping
+        }
+        for entry in archive where entry.type == .symlink {
+            throw ValidatorError.symbolicLink(path: entry.path)
+        }
+    }
+
+    static func validateHookScript(mainScriptName: String?, directory: URL) throws {
+        guard let mainScriptName,
+              !mainScriptName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
+              !(mainScriptName as NSString).isAbsolutePath else {
+            throw ValidatorError.invalidMainScriptName(name: mainScriptName)
+        }
+        let components = mainScriptName.components(separatedBy: "/")
+        guard components.allSatisfy({ !$0.isEmpty && $0 != "." && $0 != ".." }) else {
+            throw ValidatorError.invalidMainScriptName(name: mainScriptName)
+        }
+        let root = directory.resolvingSymlinksInPath().standardizedFileURL
+        let fm = FileManager.default
+        var script = root
+        for component in components {
+            var isDirectory: ObjCBool = false
+            guard fm.fileExists(atPath: script.path, isDirectory: &isDirectory), isDirectory.boolValue,
+                  try fm.contentsOfDirectory(atPath: script.path).contains(component) else {
+                throw ValidatorError.invalidMainScriptName(name: mainScriptName)
+            }
+            script = script.appendingPathComponent(component).resolvingSymlinksInPath().standardizedFileURL
+            guard script == root || script.path.hasPrefix(root.path + "/") else {
+                throw ValidatorError.invalidMainScriptName(name: mainScriptName)
+            }
+        }
+        guard script.path.hasPrefix(root.path + "/"),
+              fm.fileExists(atPath: script.path),
+              try script.resourceValues(forKeys: [.isRegularFileKey]).isRegularFile == true else {
+            throw ValidatorError.invalidMainScriptName(name: mainScriptName)
+        }
+    }
+
+    private func validateAddonContents(
+        location: AddonLocation, type: String? = nil, mainScriptName: String? = nil
+    ) async throws -> (relatedObjectPaths: [String], filteredObjectPaths: [String]?) {
         let addonURL: URL
+        var effectiveType = type
+        var effectiveMainScriptName = mainScriptName
 
         var existingRelatedObjectPaths: [String]?
         switch location {
         case let .local(url, targetId):
             if let targetId {
+                let db = CKContainer.default().publicCloudDatabase
                 let recordId = CKRecord.ID(recordName: targetId)
                 let recordResult: Result<CKRecord, Error>?
                 do {
-                    recordResult = try await db.records(for: [recordId], desiredKeys: ["relatedObjectPaths"])[recordId]
+                    recordResult = try await db.records(
+                        for: [recordId], desiredKeys: ["relatedObjectPaths", "type", "mainScriptName"])[recordId]
                 } catch {
                     throw ValidatorError.cloudKit(error: error)
                 }
@@ -446,6 +505,8 @@ public final class Validator {
                 switch recordResult {
                 case let .success(record):
                     existingRelatedObjectPaths = record["relatedObjectPaths"] as? [String] ?? []
+                    effectiveType = record["type"] as? String
+                    effectiveMainScriptName = mainScriptName ?? record["mainScriptName"] as? String
                 case let .failure(error):
                     throw ValidatorError.cloudKit(error: error)
                 }
@@ -460,10 +521,12 @@ public final class Validator {
                 addonURL = downloadedURL
             }
         case let .remote(id):
+            let db = CKContainer.default().publicCloudDatabase
             let recordId = CKRecord.ID(recordName: id)
             let recordResult: Result<CKRecord, Error>?
             do {
-                recordResult = try await db.records(for: [recordId], desiredKeys: ["item", "relatedObjectPaths"])[recordId]
+                recordResult = try await db.records(
+                    for: [recordId], desiredKeys: ["item", "relatedObjectPaths", "type", "mainScriptName"])[recordId]
             } catch {
                 throw ValidatorError.cloudKit(error: error)
             }
@@ -472,9 +535,12 @@ public final class Validator {
             }
             switch recordResult {
             case let .success(record):
-                if let relatedObjectPaths = record["relatedObjectPaths"] as? [String] {
+                effectiveType = record["type"] as? String
+                effectiveMainScriptName = mainScriptName ?? record["mainScriptName"] as? String
+                if effectiveType != "hook", let relatedObjectPaths = record["relatedObjectPaths"] as? [String] {
                     return (relatedObjectPaths, nil)
                 }
+                existingRelatedObjectPaths = record["relatedObjectPaths"] as? [String]
 
                 guard let addon = record["item"] as? CKAsset else {
                     throw ValidatorError.incorrectRecordFieldType
@@ -490,10 +556,23 @@ public final class Validator {
 
         let fm = FileManager.default
         let temporaryDirectoryPath = (NSTemporaryDirectory() as NSString).appendingPathComponent(UUID().uuidString)
+        try Self.validateArchiveEntries(at: addonURL)
         do {
             try fm.unzipItem(at: addonURL, to: URL(fileURLWithPath: temporaryDirectoryPath))
         } catch {
             throw ValidatorError.unzipping
+        }
+        defer {
+            do {
+                try fm.removeItem(atPath: temporaryDirectoryPath)
+            } catch {
+                NSLog("Unable to remove temporary add-on directory %@: %@", temporaryDirectoryPath, String(describing: error))
+            }
+        }
+
+        if effectiveType == "hook" {
+            try Self.validateHookScript(
+                mainScriptName: effectiveMainScriptName, directory: URL(fileURLWithPath: temporaryDirectoryPath))
         }
 
         let targetExtensions: Set<String> = ["dsc", "stc", "ssc"]
@@ -685,10 +764,11 @@ public final class Validator {
             guard let addonURL else {
                 throw ValidatorError.missingFields(fieldName: "addon")
             }
-            guard let type, ["addon", "script"].contains(type) else {
+            guard let type, ["addon", "script", "hook"].contains(type) else {
                 throw ValidatorError.badType(type: type ?? "none")
             }
-            let (relatedObjectPaths, filteredObjectPaths) = try await validateAddonContents(location: .local(url: addonURL, targetId: nil))
+            let (relatedObjectPaths, filteredObjectPaths) = try await validateAddonContents(
+                location: .local(url: addonURL, targetId: nil), type: type, mainScriptName: mainScriptName)
             if let demoObjectName, !relatedObjectPaths.contains(where: { demoObjectName == $0 || $0.hasPrefix("\(demoObjectName)/") }) {
                 throw ValidatorError.badDemoObject(supportedPaths: relatedObjectPaths)
             }
@@ -724,9 +804,11 @@ public final class Validator {
         let relatedObjectPaths: [String]
         let filteredObjectPaths: [String]?
         if let addonURL {
-            (relatedObjectPaths, filteredObjectPaths) = try await validateAddonContents(location: .local(url: addonURL, targetId: idRequirement))
+            (relatedObjectPaths, filteredObjectPaths) = try await validateAddonContents(
+                location: .local(url: addonURL, targetId: idRequirement), mainScriptName: mainScriptName)
         } else {
-            (relatedObjectPaths, filteredObjectPaths) = try await validateAddonContents(location: .remote(id: idRequirement))
+            (relatedObjectPaths, filteredObjectPaths) = try await validateAddonContents(
+                location: .remote(id: idRequirement), mainScriptName: mainScriptName)
         }
 
         if let demoObjectName, !relatedObjectPaths.contains(where: { demoObjectName == $0 || $0.hasPrefix("\(demoObjectName)/") }) {

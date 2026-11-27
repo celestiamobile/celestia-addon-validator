@@ -12,6 +12,10 @@ Go to the [Update Addon](https://celestia.mobi/submit-addon) page and login with
 
 Fill in the information about this add-on you are adding, changing, or removing.
 
+Supported types are `addon`, `script`, and `hook`. Hooks require a nonempty `mainScriptName` (`main_script_name.txt` in ZIP submissions, or `main_script_name` in pending CloudKit records) pointing to a file relative to the root of `addon.zip`. The path must already be normalized: no `.` or `..` components, repeated `/` separators, or trailing `/`. Each folder and filename must match the case in the archive exactly. Directories and paths outside the add-on are rejected. Updates to hooks must also keep a valid main script; existing item types cannot be changed. Hooks are excluded from Steam Workshop sync.
+
+Symbolic links are rejected in submission ZIPs and `addon.zip` for all types because they are not supported on Windows.
+
 Use `celaddon://item?item=<ID>` for add-on references and `celguide://guide?guide=<ID>` for guide references. Direct `celestia.mobi/resources/item` and `celestia.mobi/resources/guide` web links are rejected in submitted text, including descriptions, notes, image captions, and additional HTML. The website converts native links to web links when displaying them in a browser.
 
 ## Submitting Add-ons
