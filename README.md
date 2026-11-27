@@ -12,6 +12,8 @@ Go to the [Update Addon](https://celestia.mobi/submit-addon) page and login with
 
 Fill in the information about this add-on you are adding, changing, or removing.
 
+Use `celaddon://item?item=<ID>` for add-on references and `celguide://guide?guide=<ID>` for guide references. Direct `celestia.mobi/resources/item` and `celestia.mobi/resources/guide` web links are rejected in submitted text, including descriptions, notes, image captions, and additional HTML. The website converts native links to web links when displaying them in a browser.
+
 ## Submitting Add-ons
 
 After clicking the `Submit` button, two pop-up windows will appear. On its first pop-up, simply enter the title of the addon you submitted

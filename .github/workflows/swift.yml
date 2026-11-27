@@ -35,6 +35,9 @@ jobs:
     - name: Build
       run: swift build -v
 
+    - name: Test
+      run: swift test
+
     - name: Validate (Apple ID)
       if: github.event_name == 'pull_request' && always()
       run: |

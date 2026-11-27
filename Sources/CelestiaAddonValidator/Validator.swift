@@ -30,6 +30,7 @@ public enum ValidatorError: Error {
     case invalidInt(text: String, fieldName: String)
     case coverImageTooLarge(byteCount: Int, maxByteCount: Int)
     case invalidDownloadURL(url: String)
+    case directResourceURL(text: String, fieldName: String, replacement: String)
 }
 
 extension ValidatorError: LocalizedError {
@@ -83,6 +84,8 @@ extension ValidatorError: LocalizedError {
             return "Cover image is \(byteCount) bytes, exceeding the Steam Workshop preview image limit of \(maxByteCount) bytes"
         case let .invalidDownloadURL(url):
             return "Invalid download URL: \(url)"
+        case let .directResourceURL(text, fieldName, replacement):
+            return "Direct celestia.mobi resource links are not allowed in \(fieldName): \(text). Use \(replacement) in description content instead."
         }
     }
 }
@@ -93,6 +96,34 @@ public final class Validator {
     /// reject oversized cover images up front instead of letting the daily
     /// sync fail repeatedly.
     public static let maxCoverImageByteCount = 1024 * 1024
+
+    private static let webURLRegex = try! NSRegularExpression(
+        pattern: #"(?<![A-Za-z0-9+.-])https?://[^\s"'<>]+"#,
+        options: .caseInsensitive
+    )
+
+    static func validateResourceLinks(in text: String, fieldName: String) throws {
+        for match in webURLRegex.matches(
+            in: text, range: NSRange(text.startIndex..<text.endIndex, in: text)
+        ) {
+            let urlText = (text as NSString).substring(with: match.range)
+            guard let components = URLComponents(string: urlText),
+                  components.host?.lowercased() == "celestia.mobi" else { continue }
+            let path = components.path.split(separator: "/").map { $0.lowercased() }
+            guard path.count >= 2, path[0] == "resources" else { continue }
+            let replacement: String
+            switch path[1] {
+            case "item":
+                replacement = "celaddon://item?item=<ID>"
+            case "guide":
+                replacement = "celguide://guide?guide=<ID>"
+            default:
+                continue
+            }
+            throw ValidatorError.directResourceURL(
+                text: urlText, fieldName: fieldName, replacement: replacement)
+        }
+    }
 
     private let httpClient: any RequestClient
 
@@ -556,6 +587,16 @@ public final class Validator {
             modifyingExistingAddon = false
         }
 
+        for key in record.allKeys().sorted() {
+            if let text = record[key] as? String {
+                try Self.validateResourceLinks(in: text, fieldName: key)
+            } else if let texts = record[key] as? [String] {
+                for text in texts {
+                    try Self.validateResourceLinks(in: text, fieldName: key)
+                }
+            }
+        }
+
         let removeRichDescription = record["remove_rich_description"] as? Bool ?? false
         let richDescription: RichDescription?
         if let baseContent = record["rich_description_base"] as? String {
@@ -734,6 +775,7 @@ extension Validator {
         guard let string = String(data: contents, encoding: .utf8) else {
             throw ValidatorError.invalidText(fieldName: filename)
         }
+        try Self.validateResourceLinks(in: string, fieldName: filename)
         return string.trimmingCharacters(in: .whitespacesAndNewlines)
     }
 
